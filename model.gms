@@ -103,7 +103,7 @@ Constraint2 'ensures that each job must be assigned to one and only one factory.
 Constraint3 'makes sure the next operation of a job cannot start before its previous operation has been finished.'
 Constraint4 'state that a job can be processed on a machine only after its immediate predecessor has been completed.'
 Constraint5 'state that a job can be processed on a machine only after its immediate predecessor has been completed.'
-*Constraint6 'guarantees that the jobs within the same customer order must be assigned to the same factory'
+Constraint6 'guarantees that the jobs within the same customer order must be assigned to the same factory'
 Constraint7 'defines the overall makespan among factories'
 Constraint8 'enforces that the completion time of jobs on machines must be non-negative.'
 ;
@@ -115,19 +115,39 @@ Constraint3(i,j).. C(i,j) =g= C(i-1,j) + p(j,i);
 * here is some background on common integer modeling stuf from my professor Jeff Linderoth 
 * http://homepages.cae.wisc.edu/~linderot/classes/ie418/lecture1.pdf
 * http://homepages.cae.wisc.edu/~linderot/classes/ie418/index.html
+* One of ways to make the relaxations better is to determine what your "MAX" value is, such that the constraint still works and is as tight as possible
+* these probably should also be subsetted by order, i.e. only orders need to be processed sequentially?  I cant remember paper but I think that was case
 Constraint4(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,k) =g= C(i,j) + p(k,i) - MAX*X(k,j) - MAX*(1-Y(k,g)) - MAX*(1-Y(j,g)); 
 Constraint5(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,j) =g= C(i,k) + p(j,i) - MAX*(1-X(k,j)) - MAX*(1-Y(k,g)) - MAX*(1-Y(j,g)); 
 
 * this needs to be subsetted to just jobs within same order
 * this would also be constraint to drop if you wanted orders to be split among multiple factories
 * in real world, this would add some addional timing and effort to merge that is not modeled here
+
+* I think constrain as it currently stands will enforce *all* jobs to be processed in a single facility
 Constraint6(g,j)$(ord(j)<card(j)).. Y(j,g) =e= Y(j+1,g);
 * I wanted to get your problem solving, this constrain was causing infeasibility.  
 * It could be from wrapping, i.e. when j index is at cardinality, the constraint will be Y(j,g) =e= (Y(j+1,g)==0, doesn't exist)
+* Yup! Ensuring constrain doesn't exist for boundary works.
+
+$ontext
+When you come accross an infeasible problem, the best way to debug is by trying to make your problem feasible.
+GAMS will sometimes provide some hints in the terminal on which constraints were infeasible.
+In this case it pointed out constraint 2, but that was only infeasible because of constraint 6 and above issue.
+Sometimes it takes some logic/intuition to figure it out.  
+There are also tools, like IIS, which most solvers will implement some form of
+https://www.gams.com/latest/docs/S_CPLEX.html#CPLEXiis
+$offtext
 
 Constraint7(i,j)$(ord(i)=card(i)).. Cmax =g= C(i,j);
 Constraint8(i,j).. C(i,j) =g= 0;
 
 model modelone /all/;
+
+* change time limits
+modelone.resLim=3000;
+
+* use solver opt file
+modelone.optfile = 1;
 
 solve modelone using mip minimizing Cmax;
