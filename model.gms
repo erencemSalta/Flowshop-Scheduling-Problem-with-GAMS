@@ -101,8 +101,8 @@ Binary variables X, Y;
 Equations
 Constraint2 'ensures that each job must be assigned to one and only one factory.'
 Constraint3 'makes sure the next operation of a job cannot start before its previous operation has been finished.'
-Constraint4 'state that a job can be processed on a machine only after its immediate predecessor has been completed.'
-Constraint5 'state that a job can be processed on a machine only after its immediate predecessor has been completed.'
+*Constraint4 'state that a job can be processed on a machine only after its immediate predecessor has been completed.'
+*Constraint5 'state that a job can be processed on a machine only after its immediate predecessor has been completed.'
 Constraint6 'guarantees that the jobs within the same customer order must be assigned to the same factory'
 Constraint7 'defines the overall makespan among factories'
 Constraint8 'enforces that the completion time of jobs on machines must be non-negative.'
@@ -117,8 +117,8 @@ Constraint3(i,j).. C(i,j) =g= C(i-1,j) + p(j,i);
 * http://homepages.cae.wisc.edu/~linderot/classes/ie418/index.html
 * One of ways to make the relaxations better is to determine what your "MAX" value is, such that the constraint still works and is as tight as possible
 * these probably should also be subsetted by order, i.e. only orders need to be processed sequentially?  I cant remember paper but I think that was case
-Constraint4(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,k) =g= C(i,j) + p(k,i) - MAX*X(k,j) - MAX*(1-Y(k,g)) - MAX*(1-Y(j,g)); 
-Constraint5(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,j) =g= C(i,k) + p(j,i) - MAX*(1-X(k,j)) - MAX*(1-Y(k,g)) - MAX*(1-Y(j,g)); 
+*Constraint4(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,k) =g= C(i,j) + p(k,i) - MAX*X(k,j) - MAX*(1-Y(k,g)) - MAX*(1-Y(j,g)); 
+*Constraint5(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,j) =g= C(i,k) + p(j,i) - MAX*(1-X(k,j)) - MAX*(1-Y(k,g)) - MAX*(1-Y(j,g)); 
 
 * this needs to be subsetted to just jobs within same order
 * this would also be constraint to drop if you wanted orders to be split among multiple factories
