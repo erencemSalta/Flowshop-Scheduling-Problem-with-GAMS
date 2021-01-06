@@ -103,7 +103,7 @@ Constraint2 'ensures that each job must be assigned to one and only one factory.
 Constraint3 'makes sure the next operation of a job cannot start before its previous operation has been finished.'
 Constraint4 'state that a job can be processed on a machine only after its immediate predecessor has been completed.'
 Constraint5 'state that a job can be processed on a machine only after its immediate predecessor has been completed.'
-Constraint6 'guarantees that the jobs within the same customer order must be assigned to the same factory'
+*Constraint6 'guarantees that the jobs within the same customer order must be assigned to the same factory'
 Constraint7 'defines the overall makespan among factories'
 Constraint8 'enforces that the completion time of jobs on machines must be non-negative.'
 ;
@@ -121,7 +121,10 @@ Constraint5(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,j) =g= C(i,k) 
 * this needs to be subsetted to just jobs within same order
 * this would also be constraint to drop if you wanted orders to be split among multiple factories
 * in real world, this would add some addional timing and effort to merge that is not modeled here
-Constraint6(g,j).. Y(j,g) =e= Y(j+1,g);
+*Constraint6(g,j).. Y(j,g) =e= Y(j+1,g);
+* I wanted to get your problem solving, this constrain was causing infeasibility.  
+* It could be from wrapping, i.e. when j index is at cardinality, the constraint will be Y(j,g) =e= (Y(j+1,g)==0, doesn't exist)
+
 Constraint7(i,j)$(ord(i)=card(i)).. Cmax =g= C(i,j);
 Constraint8(i,j).. C(i,j) =g= 0;
 
