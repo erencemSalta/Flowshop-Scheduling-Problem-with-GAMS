@@ -117,6 +117,7 @@ Constraint3(i,j).. C(i,j) =g= C(i-1,j) + p(j,i);
 * http://homepages.cae.wisc.edu/~linderot/classes/ie418/index.html
 * One of ways to make the relaxations better is to determine what your "MAX" value is, such that the constraint still works and is as tight as possible
 * these probably should also be subsetted by order, i.e. only orders need to be processed sequentially?  I cant remember paper but I think that was case
+* These are currently causing infeasiblity
 *Constraint4(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,k) =g= C(i,j) + p(k,i) - MAX*X(k,j) - MAX*(1-Y(k,g)) - MAX*(1-Y(j,g)); 
 *Constraint5(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,j) =g= C(i,k) + p(j,i) - MAX*(1-X(k,j)) - MAX*(1-Y(k,g)) - MAX*(1-Y(j,g)); 
 
@@ -136,7 +137,6 @@ GAMS will sometimes provide some hints in the terminal on which constraints were
 In this case it pointed out constraint 2, but that was only infeasible because of constraint 6 and above issue.
 Sometimes it takes some logic/intuition to figure it out.  
 There are also tools, like IIS, which most solvers will implement some form of
-https://www.gams.com/latest/docs/S_CPLEX.html#CPLEXiis
 $offtext
 
 Constraint7(i,j)$(ord(i)=card(i)).. Cmax =g= C(i,j);
@@ -148,6 +148,12 @@ model modelone /all/;
 modelone.resLim=3000;
 
 * use solver opt file
+* https://www.gams.com/latest/docs/S_CPLEX.html#CPLEXiis
+* can use to change solver behavior
 modelone.optfile = 1;
 
 solve modelone using mip minimizing Cmax;
+
+
+* Echo results
+display C.l,Y.l;
