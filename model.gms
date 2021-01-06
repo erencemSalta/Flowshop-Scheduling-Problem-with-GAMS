@@ -27,15 +27,12 @@ MAX 'Large positive number' /100/
 
 Sets
   i 'machines' /m1*m5/
-  j 'job index 1' /j1*j8/
+  j 'job index 1' /j1*j40/
   g 'factories index 1' /f1*f5/
   l 'orders index 1' /o1*o4/  
 * I adjusted this ^, i think orders are composed of at least 1 job
   
-  lambda1(l) 
-  lambda2(l)  
-  lambda3(l) 
-*NOT SURE AT TIME OF ACTUAL NUMBER OF CUSTOMER ORDERS
+  order2job(l,j)  "mapping of orders to job"
 
 alias(j,k)
 alias(g,GG)
@@ -47,11 +44,8 @@ Table p(j,i) 'Processing time of job j on machine i'
     m1  m2  m3  m4  m5
 j1  1
 j2      2
-j3
-j4
-j5
-j6
-j7
+* GAMS mostly works with sparse matricies, so you often can just exclude 0
+j7              5
 * ..., a bit too much work for dummy data
 ;
 *ACTUAL TIMES NOT CLEAR AT THIS TIME
@@ -64,23 +58,34 @@ j7
 p(j,i)$( not p(j,i))=normal(ord(i)*2+5,1);
 
 
-$ontext
-Seems like we are missing the mapping of jobs to customer orders
-This appears to show up in constraint 6?
+* Lets use the lambda above for creating the order2job mapping
+parameter
+  lambda(l) /o1 10, o2 5, o3 15, o4 10/
+  lambda_cumulative(l);
 
-this creates that mapping, and then does a simple assign
-so that each order has 10 jobs
-$offtext
-set order2job(l,j)  "mapping of orders to job";
-order2job(l,j)$(ord(j)>=(ord(l)-1)*10 and ord(j)<ord(l)*10) = yes;
+lambda_cumulative(l)=sum(s$(ord(s)<=ord(l)),lambda(s));
+order2job(l,j)$(ord(j)>=lambda_cumulative(l-1) and ord(j)<lambda_cumulative(l)) = yes;
 
 
 
 * Lets echo some inputs to make sure its parsed properly
+display lambda;
+display lambda_cumulative;
 display p;
 display order2job;
 
+$ontext
+When I'm actually building real programs with GAMS, I often will create extra intermediate variables
+to make my program more expressive.  Often with GAMS and solvers preprocessing these days, these variables
+will all get removed in presolve, so actual efficiency in solving is most often not changed.  And in return
+you are able to more easily design new constraints and others can more easily see what your constraints are doing.
 
+As example, in this case I would add a binary variable for whether an order is assigned to a specific factory.  
+If an order is assigned to a factory, then you know all jobs in the order to job mapping must also be assigned
+to that factory.  These constraints are really easy to write and can be expressive.  And then when you need 
+to add the constrain that certain orders can't be processed at certain facilities, that is easy to do since you
+already have that intermediate variable
+$offtext
 Variables
 C(i,j) 'Continuous variable denotes completion time of job j on machine i'
 X(k,j) 'Binary variable equal to 1 if job j is the immediate successor of job k, and 0 otherwise.'
@@ -90,8 +95,10 @@ Cmax
 
 Binary variables X, Y;
 
+* One suggestion I have here is that I will often name constrains that are descriptive in some way
+* it can make the code a bit more readable, especially when you are down in the constrain definitions 
+* and are trying to rememmber what the constraint is for
 Equations
-
 Constraint2 'ensures that each job must be assigned to one and only one factory.'
 Constraint3 'makes sure the next operation of a job cannot start before its previous operation has been finished.'
 Constraint4 'state that a job can be processed on a machine only after its immediate predecessor has been completed.'
@@ -110,6 +117,10 @@ Constraint3(i,j).. C(i,j) =g= C(i-1,j) + p(j,i);
 * http://homepages.cae.wisc.edu/~linderot/classes/ie418/index.html
 Constraint4(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,k) =g= C(i,j) + p(k,i) - MAX*X(k,j) - MAX*(1-Y(k,g)) - MAX*(1-Y(j,g)); 
 Constraint5(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,j) =g= C(i,k) + p(j,i) - MAX*(1-X(k,j)) - MAX*(1-Y(k,g)) - MAX*(1-Y(j,g)); 
+
+* this needs to be subsetted to just jobs within same order
+* this would also be constraint to drop if you wanted orders to be split among multiple factories
+* in real world, this would add some addional timing and effort to merge that is not modeled here
 Constraint6(g,j).. Y(j,g) =e= Y(j+1,g);
 Constraint7(i,j)$(ord(i)=card(i)).. Cmax =g= C(i,j);
 Constraint8(i,j).. C(i,j) =g= 0;
