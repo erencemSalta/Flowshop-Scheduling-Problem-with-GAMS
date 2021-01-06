@@ -121,7 +121,7 @@ Constraint5(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,j) =g= C(i,k) 
 * this needs to be subsetted to just jobs within same order
 * this would also be constraint to drop if you wanted orders to be split among multiple factories
 * in real world, this would add some addional timing and effort to merge that is not modeled here
-*Constraint6(g,j).. Y(j,g) =e= Y(j+1,g);
+Constraint6(g,j)$(ord(j)<card(j)).. Y(j,g) =e= Y(j+1,g);
 * I wanted to get your problem solving, this constrain was causing infeasibility.  
 * It could be from wrapping, i.e. when j index is at cardinality, the constraint will be Y(j,g) =e= (Y(j+1,g)==0, doesn't exist)
 
