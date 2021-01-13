@@ -1,0 +1,37 @@
+B 3 C o m p i l a t i o n
+B 127 E x e c u t i o n
+I 127 lambda
+I 133 lambda_cumulative
+I 138 p
+I 152 order2job
+B 162 Equation Listing    SOLVE modelone Using MIP From line 118
+D 165 ops_factory
+D 176 ops_queue
+D 187 pred_1
+D 198 pred_2
+D 209 cho_factory
+D 220 makespan
+D 231 non_neg
+B 243 Column Listing      SOLVE modelone Using MIP From line 118
+E 246 C
+E 478 X
+E 641 Y
+E 870 Cmax
+B 885 Model Statistics    SOLVE modelone Using MIP From line 118
+B 898 Solution Report     SOLVE modelone Using MIP From line 118
+F 945 ops_factory
+F 958 ops_queue
+F 1003 pred_1
+F 1708 pred_2
+F 2413 cho_factory
+F 2453 makespan
+F 2466 non_neg
+G 2511 C
+G 2556 X
+G 2589 Y
+G 2636 Cmax
+B 2644 E x e c u t i o n
+I 2646 "The object..."
+I 2647 C
+I 2658 Y
+I 2673 Cmax

@@ -1,0 +1,20 @@
+--- Job model_1.gms Start 01/13/21 15:20:00 33.2.0 r4f23b21 DEX-DEG x86 64bit/Mac OS X
+--- Applying:
+    /Library/Frameworks/GAMS.framework/Versions/33/Resources/gmsprmun.txt
+--- GAMS Parameters defined
+    Input /Users/erencemsalta/Desktop/HW_2/Model_1/model_1.gms
+    PageSize 0
+    ScrDir /Users/erencemsalta/Desktop/HW_2/Model_1/225a/
+    SysDir /Library/Frameworks/GAMS.framework/Versions/33/Resources/
+    LogOption 3
+    ErrMsg 1
+    ErrorLog 99
+    IDE 1
+    LstTitleLeftAligned 1
+****
+**** License File validation failed
+****
+*** Status: Terminated due to a licensing error
+***         License file: /Users/erencemsalta/Library/Application Support/GAMS/gamslice.txt
+***         Inspect listing file for more information.
+--- Job model_1.gms Stop 01/13/21 15:20:00 elapsed 0:00:00.002

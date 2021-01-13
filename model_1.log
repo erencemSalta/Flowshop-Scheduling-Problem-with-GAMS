@@ -1,0 +1,157 @@
+--- Job model_1.gms Start 01/13/21 15:21:40 33.2.0 r4f23b21 DEX-DEG x86 64bit/Mac OS X
+--- Applying:
+    /Library/Frameworks/GAMS.framework/Versions/33/Resources/gmsprmun.txt
+--- GAMS Parameters defined
+    Input /Users/erencemsalta/Desktop/HW_2/Model_1/model_1.gms
+    PageSize 0
+    ScrDir /Users/erencemsalta/Desktop/HW_2/Model_1/225a/
+    SysDir /Library/Frameworks/GAMS.framework/Versions/33/Resources/
+    LogOption 3
+    ErrMsg 1
+    ErrorLog 99
+    IDE 1
+    LstTitleLeftAligned 1
+Licensee: GAMS Demo license for Eren Holiday             G210104|0002CO-GEN
+          Bilkent, Turkey                                          DL028674
+          /Users/erencemsalta/Library/Application Support/GAMS/gamslice.txt
+          erenholiday@gmail.com, Eren Holiday                              
+          Demo license for demonstration and instructional purposes only
+GAMS 33.2.0   Copyright (C) 1987-2020 GAMS Development. All rights reserved
+--- Starting compilation
+--- model_1.gms(123) 3 Mb
+--- Starting execution: elapsed 0:00:00.065
+--- model_1.gms(115) 4 Mb
+--- Generating MIP model modelone
+--- model_1.gms(118) 5 Mb
+---   1,531 rows  109 columns  7,238 non-zeroes
+---   68 discrete-columns
+--- Executing CPLEX (Solvelink=2): elapsed 0:00:00.138
+IBM ILOG CPLEX   33.2.0 r4f23b21 Released Dec 01, 2020 DEG x86 64bit/Mac OS X 
+--- *** This solver runs with a demo license. No commercial use.
+*** Error Cannot open parameter file "/Users/erencemsalta/Desktop/HW_2/Model_1/cplex.opt"
+*** Error Error code = 2; No such file or directory
+--- Space for names approximately 0.04 Mb
+--- Use option 'names no' to turn use of names off
+--- GMO memory 0.68 Mb (peak 0.68 Mb)
+--- Dictionary memory 0.00 Mb
+--- Cplex 12.10.0.0 link memory 0.02 Mb (peak 0.15 Mb)
+--- Starting Cplex
+Version identifier: 12.10.0.0 | 2019-11-26 | 843d4de
+CPXPARAM_Advance                                 0
+CPXPARAM_Threads                                 1
+CPXPARAM_MIP_Display                             4
+CPXPARAM_TimeLimit                               3000
+CPXPARAM_MIP_Tolerances_AbsMIPGap                0
+Tried aggregator 2 times.
+MIP Presolve eliminated 55 rows and 1 columns.
+Aggregator did 35 substitutions.
+Reduced MIP has 1441 rows, 74 columns, and 5685 nonzeros.
+Reduced MIP has 33 binaries, 0 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.01 sec. (3.92 ticks)
+Found incumbent of value 60.000000 after 0.02 sec. (5.74 ticks)
+Probing time = 0.00 sec. (0.27 ticks)
+Tried aggregator 1 time.
+Detecting symmetries...
+Reduced MIP has 1441 rows, 74 columns, and 5685 nonzeros.
+Reduced MIP has 33 binaries, 0 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (2.46 ticks)
+Probing time = 0.00 sec. (0.27 ticks)
+Clique table members: 1.
+MIP emphasis: balance optimality and feasibility.
+MIP search method: dynamic search.
+Parallel mode: none, using 1 thread.
+Tried aggregator 1 time.
+No LP presolve or aggregator reductions.
+Presolve time = 0.00 sec. (0.53 ticks)
+Initializing dual steep norms . . .
+Iteration log . . .
+Iteration:     1   Dual objective     =            28.822274
+Root relaxation solution time = 0.00 sec. (2.13 ticks)
+        Nodes                                         Cuts/
+   Node  Left     Objective  IInf  Best Integer    Best Bound    ItCnt     Gap
+*     0+    0                           60.0000       28.8223            51.96%
+Found incumbent of value 60.000000 after 0.04 sec. (13.39 ticks)
+      0     0       28.8223     2       60.0000       28.8223        1   51.96%
+      0     0       28.8223     2       60.0000  MIRcuts: 276       56   51.96%
+      0     0       28.8223     2       60.0000     Cuts: 225       64   51.96%
+*     0+    0                           59.5757       28.8223            51.62%
+Found incumbent of value 59.575722 after 0.06 sec. (30.52 ticks)
+      0     2       28.8223    28       59.5757       28.8223       93   51.62%
+Elapsed time = 0.08 sec. (39.38 ticks, tree = 0.01 MB, solutions = 2)
+*    10+   10                           56.1505       34.6662            38.26%
+Found incumbent of value 56.150455 after 0.09 sec. (47.03 ticks)
+    520   228       49.4728     3       56.1505       40.9562     3493   27.06%
+    987   339       44.7544     7       56.1505       44.2584     6779   21.18%
+   1541   424       55.8946     2       56.1505       45.5504    10423   18.88%
+                                                    Covers: 2                  
+Performing restart 1
+Repeating presolve.
+Tried aggregator 1 time.
+MIP Presolve eliminated 1121 rows and 5 columns.
+MIP Presolve modified 645 coefficients.
+Reduced MIP has 320 rows, 69 columns, and 920 nonzeros.
+Reduced MIP has 28 binaries, 0 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (1.12 ticks)
+Tried aggregator 1 time.
+Reduced MIP has 320 rows, 69 columns, and 920 nonzeros.
+Reduced MIP has 28 binaries, 0 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.53 ticks)
+Represolve time = 0.00 sec. (2.20 ticks)
+Tried aggregator 1 time.
+No LP presolve or aggregator reductions.
+Presolve time = 0.00 sec. (0.11 ticks)
+Iteration log . . .
+Iteration:     1   Dual objective     =            34.666241
+   1876     0       34.6662    28       56.1505     Cuts: 148    12522   17.73%
+   1876     0       34.7835    28       56.1505     Cuts: 165    12619   17.73%
+   1876     0       35.0485    28       56.1505     Cuts: 139    12697   17.73%
+   1876     0       36.0712    28       56.1505     Cuts: 180    12792   17.73%
+   1876     0       36.1744    28       56.1505     Cuts: 110    12842   17.73%
+   1876     0       36.2044    28       56.1505     Cuts: 116    12934   17.73%
+   1876     0       36.7561    28       56.1505     Cuts: 153    12998   17.73%
+   1876     0       36.8201    28       56.1505      Cuts: 37    13031   17.73%
+   2069   107       44.7818     8       56.1505       46.1969    14410   17.73%
+                                                     Cuts: 19                  
+   2614   190       54.5307     3       56.1505       46.3001    23212   17.54%
+                                                     Cuts: 94                  
+Cover cuts applied:  2
+Implied bound cuts applied:  70
+Flow cuts applied:  11
+Mixed integer rounding cuts applied:  42
+Gomory fractional cuts applied:  9
+Root node processing (before b&c):
+  Real time             =    0.08 sec. (39.34 ticks)
+Sequential b&c:
+  Real time             =    1.73 sec. (1379.84 ticks)
+                          ------------
+Total (root+branch&cut) =    1.81 sec. (1419.18 ticks)
+--- MIP status (101): integer optimal solution.
+--- Cplex Time: 1.81sec (det. 1419.18 ticks)
+--- Fixing integer variables and solving final LP...
+Version identifier: 12.10.0.0 | 2019-11-26 | 843d4de
+CPXPARAM_Advance                                 2
+CPXPARAM_Threads                                 1
+CPXPARAM_MIP_Display                             4
+CPXPARAM_TimeLimit                               3000
+CPXPARAM_MIP_Tolerances_AbsMIPGap                0
+Tried aggregator 1 time.
+LP Presolve eliminated 1211 rows and 69 columns.
+Reduced LP has 320 rows, 41 columns, and 640 nonzeros.
+Presolve time = 0.00 sec. (0.85 ticks)
+Iteration log . . .
+Iteration:     1   Dual infeasibility =             0.000000
+Iteration:     2   Dual objective     =             0.000000
+Iteration:    68   Dual objective     =            56.150455
+--- Fixed MIP status (1): optimal.
+--- Cplex Time: 0.00sec (det. 2.11 ticks)
+Proven optimal solution
+MIP Solution:           56.150455    (31696 iterations, 3276 nodes)
+Final Solve:            56.150455    (73 iterations)
+Best possible:          56.150455
+Absolute gap:            0.000000
+Relative gap:            0.000000
+--- Reading solution for model modelone
+--- Executing after solve: elapsed 0:00:02.763
+--- model_1.gms(123) 5 Mb
+*** Status: Normal completion
+--- Job model_1.gms Stop 01/13/21 15:21:43 elapsed 0:00:02.764

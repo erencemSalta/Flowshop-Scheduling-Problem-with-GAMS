@@ -1,0 +1,2687 @@
+GAMS 33.2.0  r4f23b21 Released Dec  1, 2020 DEX-DEG x86 64bit/Mac OS X - 01/13/21 15:21:40 Page 1
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+C o m p i l a t i o n
+
+
+       
+      MILP Model described by T.Meng, Q.Pan and L.Wang in the paper titled
+      A distributed permutation flowshop scheduling problem with the
+      customer order constraint.
+       
+      Use example for 5 flow shops (factories) and 40 jobs with 5 operations (machines)
+       
+      Customer orders an assumption
+      m 'number of machines' /5/
+      f 'number of factories' /5/
+      n 'total number of jobs' /40/
+      r 'number of customer orders' /50/
+  20  Scalar
+  21  MAX 'Large positive number' /100/
+  22  ;
+  23   
+  24   
+  25  * I like to add some letter tags to indicies
+  26  * so it is easier to follow where the number indicies belong
+  27   
+  28  Sets
+  29    i 'machines' /m1*m5/
+  30    j 'job index 1' /j1*j8/
+  31    g 'factories index 1' /f1*f5/
+  32    l 'orders index 1' /o1*o5/
+  33   
+  34   
+  35    order2job(l,j)  "mapping of orders to job"
+  36   
+  37  alias(j,k)
+  38  alias(g,GG)
+  39  alias(l,s)
+  40  ;
+  41   
+  42  *Creation of data
+  43  Table p(j,i) 'Processing time of job j on machine i'
+  44      m1  m2  m3  m4  m5
+  45  j1  1
+  46  j2      2
+  47  j7              5
+  48   
+  49  ;
+  50   
+  51  * this will set the data for all things not assigned to normal, mean=5, std=1
+  52  * as it is assumed that the processing times are equal, we will use the following line of code:
+  53  p(j,i)$( not p(j,i))=normal(5,1);
+  54   
+  55  * if the previous assumption was not in place we could make it so that higher number machines are slower
+  56  * using the following line of code
+  57  *p(j,i)$( not p(j,i))=normal(ord(i)*2+5,1);
+  58   
+  59   
+  60  * We will use the lambda above for creating the order2job mapping
+  61  parameter
+  62    lambda(l) /o1 10, o2 5, o3 15, o4 10, o5 10/
+  63    lambda_cumulative(l);
+  64   
+  65  lambda_cumulative(l)=sum(s$(ord(s)<=ord(l)),lambda(s));
+  66  order2job(l,j)$(ord(j)>=lambda_cumulative(l-1) and ord(j)<lambda_cumulative(l)) = yes;
+  67   
+  68   
+  69   
+  70  *By eching some inputs, we can make sure its parsed properly
+  71  display lambda;
+  72  display lambda_cumulative;
+  73  display p;
+  74  display order2job;
+  75   
+  76  Variables
+  77  C(i,j) 'Continuous variable denotes completion time of job j on machine i'
+  78  X(k,j) 'Binary variable equal to 1 if job j is the immediate successor of job k, and 0 otherwise.'
+  79  Y(j,g) 'Binary variable equal to 1 if job j is assigned to factory g, and 0 otherwise'
+  80  Cmax
+  81  ;
+  82   
+  83  Binary variables X, Y;
+  84   
+  85  * I name constrains that are descriptive in some way
+  86  * which makes the code a bit more readable, especially during the development and maintenance stages of the constrain definitions
+  87  Equations
+  88  ops_factory 'ensures that each job must be assigned to one and only one factory.'
+  89  ops_queue 'makes sure the next operation of a job cannot start before its previous operation has been finished.'
+  90  pred_1 'state that a job can be processed on a machine only after its immediate predecessor has been completed.'
+  91  pred_2 'state that a job can be processed on a machine only after its immediate predecessor has been completed.'
+  92  cho_factory 'guarantees that the jobs within the same customer order must be assigned to the same factory'
+  93  makespan 'defines the overall makespan among factories'
+  94  non_neg 'enforces that the completion time of jobs on machines must be non-negative.'
+  95  ;
+  96   
+  97  ops_factory(j).. sum(g, Y(j,g)) =e= 1;
+  98  ops_queue(i,j).. C(i,j) =g= C(i-1,j) + p(j,i);
+  99   
+ 100  * We will use "big-M" constraints, which are pretty common for easiest way to model binary decisions but lead to weak relaxations
+ 101   
+ 102  pred_1(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,k) =g= C(i,j) + p(k,i) - MAX*X(k,j) - MAX*(1-Y(k,g)) - MAX*(1-Y(j,g));
+ 103  pred_2(i,j,k,g)$(ord(k) < card(k) and ord(j) > ord(k)).. C(i,j) =g= C(i,k) + p(j,i) - MAX*(1-X(k,j)) - MAX*(1-Y(k,g)) - MAX*(1-Y(j,g));
+ 104  * In order to prevent infeasibility problems, the constrain is set in accordance to the domain of the functions
+ 105  cho_factory(g,j)$(ord(j)<card(j)).. Y(j,g) =e= Y(j+1,g);
+ 106   
+ 107  makespan(i,j)$(ord(i)=card(i)).. Cmax =g= C(i,j);
+ 108  non_neg(i,j).. C(i,j) =g= 0;
+ 109   
+ 110  * The model includes all the nine constraints
+ 111  model modelone /all/;
+ 112   
+ 113  modelone.resLim=3000;
+ 114   
+ 115  modelone.optfile = 1;
+ 116   
+ 117  *solving the problem by minimizing Cmax which stands for the total time of competion or makespan
+ 118  solve modelone using mip minimizing Cmax;
+ 119   
+ 120   
+ 121  * Echo results
+ 122  display 'The objective function is';
+ 123  display C.l,Y.l, Cmax.l;
+
+
+COMPILATION TIME     =        0.009 SECONDS      3 MB  33.2.0 r4f23b21 DEX-DEG
+GAMS 33.2.0  r4f23b21 Released Dec  1, 2020 DEX-DEG x86 64bit/Mac OS X - 01/13/21 15:21:40 Page 2
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+E x e c u t i o n
+
+
+----     71 PARAMETER lambda  
+
+o1 10.000,    o2  5.000,    o3 15.000,    o4 10.000,    o5 10.000
+
+
+----     72 PARAMETER lambda_cumulative  
+
+o1 10.000,    o2 15.000,    o3 30.000,    o4 40.000,    o5 50.000
+
+
+----     73 PARAMETER p  Processing time of job j on machine i
+
+            m1          m2          m3          m4          m5
+
+j1       1.000       4.687       5.328       5.464       3.170
+j2       4.268       2.000       4.028       4.606       5.935
+j3       4.241       5.000       4.091       5.344       4.338
+j4       4.514       6.884       4.279       3.701       3.625
+j5       5.320       6.187       3.847       5.710       6.017
+j6       4.276       4.001       5.006       4.005       4.093
+j7       5.663       6.571       7.213       5.000       4.375
+j8       4.782       4.038       4.892       4.737       4.473
+
+
+----     74 SET order2job  mapping of orders to job
+
+            j1          j2          j3          j4          j5          j6          j7          j8
+
+o1         YES         YES         YES         YES         YES         YES         YES         YES
+
+GAMS 33.2.0  r4f23b21 Released Dec  1, 2020 DEX-DEG x86 64bit/Mac OS X - 01/13/21 15:21:40 Page 3
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Equation Listing    SOLVE modelone Using MIP From line 118
+
+
+---- ops_factory  =E=  ensures that each job must be assigned to one and only one factory.
+
+ops_factory(j1)..  Y(j1,f1) + Y(j1,f2) + Y(j1,f3) + Y(j1,f4) + Y(j1,f5) =E= 1 ; (LHS = 0, INFES = 1 ****)
+     
+ops_factory(j2)..  Y(j2,f1) + Y(j2,f2) + Y(j2,f3) + Y(j2,f4) + Y(j2,f5) =E= 1 ; (LHS = 0, INFES = 1 ****)
+     
+ops_factory(j3)..  Y(j3,f1) + Y(j3,f2) + Y(j3,f3) + Y(j3,f4) + Y(j3,f5) =E= 1 ; (LHS = 0, INFES = 1 ****)
+     
+REMAINING 5 ENTRIES SKIPPED
+
+
+---- ops_queue  =G=  makes sure the next operation of a job cannot start before its previous operation has been finished.
+
+ops_queue(m1,j1)..  C(m1,j1) =G= 1 ; (LHS = 0, INFES = 1 ****)
+     
+ops_queue(m1,j2)..  C(m1,j2) =G= 4.26838758636443 ; (LHS = 0, INFES = 4.26838758636443 ****)
+     
+ops_queue(m1,j3)..  C(m1,j3) =G= 4.24070324093278 ; (LHS = 0, INFES = 4.24070324093278 ****)
+     
+REMAINING 37 ENTRIES SKIPPED
+
+
+---- pred_1  =G=  state that a job can be processed on a machine only after its immediate predecessor has been completed.
+
+pred_1(m1,j2,j1,f1)..  C(m1,j1) - C(m1,j2) + 100*X(j1,j2) - 100*Y(j1,f1) - 100*Y(j2,f1) =G= -199 ; (LHS = 0)
+     
+pred_1(m1,j2,j1,f2)..  C(m1,j1) - C(m1,j2) + 100*X(j1,j2) - 100*Y(j1,f2) - 100*Y(j2,f2) =G= -199 ; (LHS = 0)
+     
+pred_1(m1,j2,j1,f3)..  C(m1,j1) - C(m1,j2) + 100*X(j1,j2) - 100*Y(j1,f3) - 100*Y(j2,f3) =G= -199 ; (LHS = 0)
+     
+REMAINING 697 ENTRIES SKIPPED
+
+
+---- pred_2  =G=  state that a job can be processed on a machine only after its immediate predecessor has been completed.
+
+pred_2(m1,j2,j1,f1)..  - C(m1,j1) + C(m1,j2) - 100*X(j1,j2) - 100*Y(j1,f1) - 100*Y(j2,f1) =G= -295.731612413636 ; (LHS = 0)
+     
+pred_2(m1,j2,j1,f2)..  - C(m1,j1) + C(m1,j2) - 100*X(j1,j2) - 100*Y(j1,f2) - 100*Y(j2,f2) =G= -295.731612413636 ; (LHS = 0)
+     
+pred_2(m1,j2,j1,f3)..  - C(m1,j1) + C(m1,j2) - 100*X(j1,j2) - 100*Y(j1,f3) - 100*Y(j2,f3) =G= -295.731612413636 ; (LHS = 0)
+     
+REMAINING 697 ENTRIES SKIPPED
+
+
+---- cho_factory  =E=  guarantees that the jobs within the same customer order must be assigned to the same factory
+
+cho_factory(f1,j1)..  Y(j1,f1) - Y(j2,f1) =E= 0 ; (LHS = 0)
+     
+cho_factory(f1,j2)..  Y(j2,f1) - Y(j3,f1) =E= 0 ; (LHS = 0)
+     
+cho_factory(f1,j3)..  Y(j3,f1) - Y(j4,f1) =E= 0 ; (LHS = 0)
+     
+REMAINING 32 ENTRIES SKIPPED
+
+
+---- makespan  =G=  defines the overall makespan among factories
+
+makespan(m5,j1)..  - C(m5,j1) + Cmax =G= 0 ; (LHS = 0)
+     
+makespan(m5,j2)..  - C(m5,j2) + Cmax =G= 0 ; (LHS = 0)
+     
+makespan(m5,j3)..  - C(m5,j3) + Cmax =G= 0 ; (LHS = 0)
+     
+REMAINING 5 ENTRIES SKIPPED
+
+
+---- non_neg  =G=  enforces that the completion time of jobs on machines must be non-negative.
+
+non_neg(m1,j1)..  C(m1,j1) =G= 0 ; (LHS = 0)
+     
+non_neg(m1,j2)..  C(m1,j2) =G= 0 ; (LHS = 0)
+     
+non_neg(m1,j3)..  C(m1,j3) =G= 0 ; (LHS = 0)
+     
+REMAINING 37 ENTRIES SKIPPED
+
+GAMS 33.2.0  r4f23b21 Released Dec  1, 2020 DEX-DEG x86 64bit/Mac OS X - 01/13/21 15:21:40 Page 4
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Column Listing      SOLVE modelone Using MIP From line 118
+
+
+---- C  Continuous variable denotes completion time of job j on machine i
+
+C(m1,j1)
+                (.LO, .L, .UP, .M = -INF, 0, +INF, 0)
+        1       ops_queue(m1,j1)
+       -1       ops_queue(m2,j1)
+        1       pred_1(m1,j2,j1,f1)
+        1       pred_1(m1,j2,j1,f2)
+        1       pred_1(m1,j2,j1,f3)
+        1       pred_1(m1,j2,j1,f4)
+        1       pred_1(m1,j2,j1,f5)
+        1       pred_1(m1,j3,j1,f1)
+        1       pred_1(m1,j3,j1,f2)
+        1       pred_1(m1,j3,j1,f3)
+        1       pred_1(m1,j3,j1,f4)
+        1       pred_1(m1,j3,j1,f5)
+        1       pred_1(m1,j4,j1,f1)
+        1       pred_1(m1,j4,j1,f2)
+        1       pred_1(m1,j4,j1,f3)
+        1       pred_1(m1,j4,j1,f4)
+        1       pred_1(m1,j4,j1,f5)
+        1       pred_1(m1,j5,j1,f1)
+        1       pred_1(m1,j5,j1,f2)
+        1       pred_1(m1,j5,j1,f3)
+        1       pred_1(m1,j5,j1,f4)
+        1       pred_1(m1,j5,j1,f5)
+        1       pred_1(m1,j6,j1,f1)
+        1       pred_1(m1,j6,j1,f2)
+        1       pred_1(m1,j6,j1,f3)
+        1       pred_1(m1,j6,j1,f4)
+        1       pred_1(m1,j6,j1,f5)
+        1       pred_1(m1,j7,j1,f1)
+        1       pred_1(m1,j7,j1,f2)
+        1       pred_1(m1,j7,j1,f3)
+        1       pred_1(m1,j7,j1,f4)
+        1       pred_1(m1,j7,j1,f5)
+        1       pred_1(m1,j8,j1,f1)
+        1       pred_1(m1,j8,j1,f2)
+        1       pred_1(m1,j8,j1,f3)
+        1       pred_1(m1,j8,j1,f4)
+        1       pred_1(m1,j8,j1,f5)
+       -1       pred_2(m1,j2,j1,f1)
+       -1       pred_2(m1,j2,j1,f2)
+       -1       pred_2(m1,j2,j1,f3)
+       -1       pred_2(m1,j2,j1,f4)
+       -1       pred_2(m1,j2,j1,f5)
+       -1       pred_2(m1,j3,j1,f1)
+       -1       pred_2(m1,j3,j1,f2)
+       -1       pred_2(m1,j3,j1,f3)
+       -1       pred_2(m1,j3,j1,f4)
+       -1       pred_2(m1,j3,j1,f5)
+       -1       pred_2(m1,j4,j1,f1)
+       -1       pred_2(m1,j4,j1,f2)
+       -1       pred_2(m1,j4,j1,f3)
+       -1       pred_2(m1,j4,j1,f4)
+       -1       pred_2(m1,j4,j1,f5)
+       -1       pred_2(m1,j5,j1,f1)
+       -1       pred_2(m1,j5,j1,f2)
+       -1       pred_2(m1,j5,j1,f3)
+       -1       pred_2(m1,j5,j1,f4)
+       -1       pred_2(m1,j5,j1,f5)
+       -1       pred_2(m1,j6,j1,f1)
+       -1       pred_2(m1,j6,j1,f2)
+       -1       pred_2(m1,j6,j1,f3)
+       -1       pred_2(m1,j6,j1,f4)
+       -1       pred_2(m1,j6,j1,f5)
+       -1       pred_2(m1,j7,j1,f1)
+       -1       pred_2(m1,j7,j1,f2)
+       -1       pred_2(m1,j7,j1,f3)
+       -1       pred_2(m1,j7,j1,f4)
+       -1       pred_2(m1,j7,j1,f5)
+       -1       pred_2(m1,j8,j1,f1)
+       -1       pred_2(m1,j8,j1,f2)
+       -1       pred_2(m1,j8,j1,f3)
+       -1       pred_2(m1,j8,j1,f4)
+       -1       pred_2(m1,j8,j1,f5)
+        1       non_neg(m1,j1)
+
+C(m1,j2)
+                (.LO, .L, .UP, .M = -INF, 0, +INF, 0)
+        1       ops_queue(m1,j2)
+       -1       ops_queue(m2,j2)
+       -1       pred_1(m1,j2,j1,f1)
+       -1       pred_1(m1,j2,j1,f2)
+       -1       pred_1(m1,j2,j1,f3)
+       -1       pred_1(m1,j2,j1,f4)
+       -1       pred_1(m1,j2,j1,f5)
+        1       pred_1(m1,j3,j2,f1)
+        1       pred_1(m1,j3,j2,f2)
+        1       pred_1(m1,j3,j2,f3)
+        1       pred_1(m1,j3,j2,f4)
+        1       pred_1(m1,j3,j2,f5)
+        1       pred_1(m1,j4,j2,f1)
+        1       pred_1(m1,j4,j2,f2)
+        1       pred_1(m1,j4,j2,f3)
+        1       pred_1(m1,j4,j2,f4)
+        1       pred_1(m1,j4,j2,f5)
+        1       pred_1(m1,j5,j2,f1)
+        1       pred_1(m1,j5,j2,f2)
+        1       pred_1(m1,j5,j2,f3)
+        1       pred_1(m1,j5,j2,f4)
+        1       pred_1(m1,j5,j2,f5)
+        1       pred_1(m1,j6,j2,f1)
+        1       pred_1(m1,j6,j2,f2)
+        1       pred_1(m1,j6,j2,f3)
+        1       pred_1(m1,j6,j2,f4)
+        1       pred_1(m1,j6,j2,f5)
+        1       pred_1(m1,j7,j2,f1)
+        1       pred_1(m1,j7,j2,f2)
+        1       pred_1(m1,j7,j2,f3)
+        1       pred_1(m1,j7,j2,f4)
+        1       pred_1(m1,j7,j2,f5)
+        1       pred_1(m1,j8,j2,f1)
+        1       pred_1(m1,j8,j2,f2)
+        1       pred_1(m1,j8,j2,f3)
+        1       pred_1(m1,j8,j2,f4)
+        1       pred_1(m1,j8,j2,f5)
+        1       pred_2(m1,j2,j1,f1)
+        1       pred_2(m1,j2,j1,f2)
+        1       pred_2(m1,j2,j1,f3)
+        1       pred_2(m1,j2,j1,f4)
+        1       pred_2(m1,j2,j1,f5)
+       -1       pred_2(m1,j3,j2,f1)
+       -1       pred_2(m1,j3,j2,f2)
+       -1       pred_2(m1,j3,j2,f3)
+       -1       pred_2(m1,j3,j2,f4)
+       -1       pred_2(m1,j3,j2,f5)
+       -1       pred_2(m1,j4,j2,f1)
+       -1       pred_2(m1,j4,j2,f2)
+       -1       pred_2(m1,j4,j2,f3)
+       -1       pred_2(m1,j4,j2,f4)
+       -1       pred_2(m1,j4,j2,f5)
+       -1       pred_2(m1,j5,j2,f1)
+       -1       pred_2(m1,j5,j2,f2)
+       -1       pred_2(m1,j5,j2,f3)
+       -1       pred_2(m1,j5,j2,f4)
+       -1       pred_2(m1,j5,j2,f5)
+       -1       pred_2(m1,j6,j2,f1)
+       -1       pred_2(m1,j6,j2,f2)
+       -1       pred_2(m1,j6,j2,f3)
+       -1       pred_2(m1,j6,j2,f4)
+       -1       pred_2(m1,j6,j2,f5)
+       -1       pred_2(m1,j7,j2,f1)
+       -1       pred_2(m1,j7,j2,f2)
+       -1       pred_2(m1,j7,j2,f3)
+       -1       pred_2(m1,j7,j2,f4)
+       -1       pred_2(m1,j7,j2,f5)
+       -1       pred_2(m1,j8,j2,f1)
+       -1       pred_2(m1,j8,j2,f2)
+       -1       pred_2(m1,j8,j2,f3)
+       -1       pred_2(m1,j8,j2,f4)
+       -1       pred_2(m1,j8,j2,f5)
+        1       non_neg(m1,j2)
+
+C(m1,j3)
+                (.LO, .L, .UP, .M = -INF, 0, +INF, 0)
+        1       ops_queue(m1,j3)
+       -1       ops_queue(m2,j3)
+       -1       pred_1(m1,j3,j1,f1)
+       -1       pred_1(m1,j3,j1,f2)
+       -1       pred_1(m1,j3,j1,f3)
+       -1       pred_1(m1,j3,j1,f4)
+       -1       pred_1(m1,j3,j1,f5)
+       -1       pred_1(m1,j3,j2,f1)
+       -1       pred_1(m1,j3,j2,f2)
+       -1       pred_1(m1,j3,j2,f3)
+       -1       pred_1(m1,j3,j2,f4)
+       -1       pred_1(m1,j3,j2,f5)
+        1       pred_1(m1,j4,j3,f1)
+        1       pred_1(m1,j4,j3,f2)
+        1       pred_1(m1,j4,j3,f3)
+        1       pred_1(m1,j4,j3,f4)
+        1       pred_1(m1,j4,j3,f5)
+        1       pred_1(m1,j5,j3,f1)
+        1       pred_1(m1,j5,j3,f2)
+        1       pred_1(m1,j5,j3,f3)
+        1       pred_1(m1,j5,j3,f4)
+        1       pred_1(m1,j5,j3,f5)
+        1       pred_1(m1,j6,j3,f1)
+        1       pred_1(m1,j6,j3,f2)
+        1       pred_1(m1,j6,j3,f3)
+        1       pred_1(m1,j6,j3,f4)
+        1       pred_1(m1,j6,j3,f5)
+        1       pred_1(m1,j7,j3,f1)
+        1       pred_1(m1,j7,j3,f2)
+        1       pred_1(m1,j7,j3,f3)
+        1       pred_1(m1,j7,j3,f4)
+        1       pred_1(m1,j7,j3,f5)
+        1       pred_1(m1,j8,j3,f1)
+        1       pred_1(m1,j8,j3,f2)
+        1       pred_1(m1,j8,j3,f3)
+        1       pred_1(m1,j8,j3,f4)
+        1       pred_1(m1,j8,j3,f5)
+        1       pred_2(m1,j3,j1,f1)
+        1       pred_2(m1,j3,j1,f2)
+        1       pred_2(m1,j3,j1,f3)
+        1       pred_2(m1,j3,j1,f4)
+        1       pred_2(m1,j3,j1,f5)
+        1       pred_2(m1,j3,j2,f1)
+        1       pred_2(m1,j3,j2,f2)
+        1       pred_2(m1,j3,j2,f3)
+        1       pred_2(m1,j3,j2,f4)
+        1       pred_2(m1,j3,j2,f5)
+       -1       pred_2(m1,j4,j3,f1)
+       -1       pred_2(m1,j4,j3,f2)
+       -1       pred_2(m1,j4,j3,f3)
+       -1       pred_2(m1,j4,j3,f4)
+       -1       pred_2(m1,j4,j3,f5)
+       -1       pred_2(m1,j5,j3,f1)
+       -1       pred_2(m1,j5,j3,f2)
+       -1       pred_2(m1,j5,j3,f3)
+       -1       pred_2(m1,j5,j3,f4)
+       -1       pred_2(m1,j5,j3,f5)
+       -1       pred_2(m1,j6,j3,f1)
+       -1       pred_2(m1,j6,j3,f2)
+       -1       pred_2(m1,j6,j3,f3)
+       -1       pred_2(m1,j6,j3,f4)
+       -1       pred_2(m1,j6,j3,f5)
+       -1       pred_2(m1,j7,j3,f1)
+       -1       pred_2(m1,j7,j3,f2)
+       -1       pred_2(m1,j7,j3,f3)
+       -1       pred_2(m1,j7,j3,f4)
+       -1       pred_2(m1,j7,j3,f5)
+       -1       pred_2(m1,j8,j3,f1)
+       -1       pred_2(m1,j8,j3,f2)
+       -1       pred_2(m1,j8,j3,f3)
+       -1       pred_2(m1,j8,j3,f4)
+       -1       pred_2(m1,j8,j3,f5)
+        1       non_neg(m1,j3)
+
+REMAINING 37 ENTRIES SKIPPED
+
+---- X  Binary variable equal to 1 if job j is the immediate successor of job k, and 0 otherwise.
+
+X(j1,j2)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+      100       pred_1(m1,j2,j1,f1)
+      100       pred_1(m1,j2,j1,f2)
+      100       pred_1(m1,j2,j1,f3)
+      100       pred_1(m1,j2,j1,f4)
+      100       pred_1(m1,j2,j1,f5)
+      100       pred_1(m2,j2,j1,f1)
+      100       pred_1(m2,j2,j1,f2)
+      100       pred_1(m2,j2,j1,f3)
+      100       pred_1(m2,j2,j1,f4)
+      100       pred_1(m2,j2,j1,f5)
+      100       pred_1(m3,j2,j1,f1)
+      100       pred_1(m3,j2,j1,f2)
+      100       pred_1(m3,j2,j1,f3)
+      100       pred_1(m3,j2,j1,f4)
+      100       pred_1(m3,j2,j1,f5)
+      100       pred_1(m4,j2,j1,f1)
+      100       pred_1(m4,j2,j1,f2)
+      100       pred_1(m4,j2,j1,f3)
+      100       pred_1(m4,j2,j1,f4)
+      100       pred_1(m4,j2,j1,f5)
+      100       pred_1(m5,j2,j1,f1)
+      100       pred_1(m5,j2,j1,f2)
+      100       pred_1(m5,j2,j1,f3)
+      100       pred_1(m5,j2,j1,f4)
+      100       pred_1(m5,j2,j1,f5)
+     -100       pred_2(m1,j2,j1,f1)
+     -100       pred_2(m1,j2,j1,f2)
+     -100       pred_2(m1,j2,j1,f3)
+     -100       pred_2(m1,j2,j1,f4)
+     -100       pred_2(m1,j2,j1,f5)
+     -100       pred_2(m2,j2,j1,f1)
+     -100       pred_2(m2,j2,j1,f2)
+     -100       pred_2(m2,j2,j1,f3)
+     -100       pred_2(m2,j2,j1,f4)
+     -100       pred_2(m2,j2,j1,f5)
+     -100       pred_2(m3,j2,j1,f1)
+     -100       pred_2(m3,j2,j1,f2)
+     -100       pred_2(m3,j2,j1,f3)
+     -100       pred_2(m3,j2,j1,f4)
+     -100       pred_2(m3,j2,j1,f5)
+     -100       pred_2(m4,j2,j1,f1)
+     -100       pred_2(m4,j2,j1,f2)
+     -100       pred_2(m4,j2,j1,f3)
+     -100       pred_2(m4,j2,j1,f4)
+     -100       pred_2(m4,j2,j1,f5)
+     -100       pred_2(m5,j2,j1,f1)
+     -100       pred_2(m5,j2,j1,f2)
+     -100       pred_2(m5,j2,j1,f3)
+     -100       pred_2(m5,j2,j1,f4)
+     -100       pred_2(m5,j2,j1,f5)
+
+X(j1,j3)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+      100       pred_1(m1,j3,j1,f1)
+      100       pred_1(m1,j3,j1,f2)
+      100       pred_1(m1,j3,j1,f3)
+      100       pred_1(m1,j3,j1,f4)
+      100       pred_1(m1,j3,j1,f5)
+      100       pred_1(m2,j3,j1,f1)
+      100       pred_1(m2,j3,j1,f2)
+      100       pred_1(m2,j3,j1,f3)
+      100       pred_1(m2,j3,j1,f4)
+      100       pred_1(m2,j3,j1,f5)
+      100       pred_1(m3,j3,j1,f1)
+      100       pred_1(m3,j3,j1,f2)
+      100       pred_1(m3,j3,j1,f3)
+      100       pred_1(m3,j3,j1,f4)
+      100       pred_1(m3,j3,j1,f5)
+      100       pred_1(m4,j3,j1,f1)
+      100       pred_1(m4,j3,j1,f2)
+      100       pred_1(m4,j3,j1,f3)
+      100       pred_1(m4,j3,j1,f4)
+      100       pred_1(m4,j3,j1,f5)
+      100       pred_1(m5,j3,j1,f1)
+      100       pred_1(m5,j3,j1,f2)
+      100       pred_1(m5,j3,j1,f3)
+      100       pred_1(m5,j3,j1,f4)
+      100       pred_1(m5,j3,j1,f5)
+     -100       pred_2(m1,j3,j1,f1)
+     -100       pred_2(m1,j3,j1,f2)
+     -100       pred_2(m1,j3,j1,f3)
+     -100       pred_2(m1,j3,j1,f4)
+     -100       pred_2(m1,j3,j1,f5)
+     -100       pred_2(m2,j3,j1,f1)
+     -100       pred_2(m2,j3,j1,f2)
+     -100       pred_2(m2,j3,j1,f3)
+     -100       pred_2(m2,j3,j1,f4)
+     -100       pred_2(m2,j3,j1,f5)
+     -100       pred_2(m3,j3,j1,f1)
+     -100       pred_2(m3,j3,j1,f2)
+     -100       pred_2(m3,j3,j1,f3)
+     -100       pred_2(m3,j3,j1,f4)
+     -100       pred_2(m3,j3,j1,f5)
+     -100       pred_2(m4,j3,j1,f1)
+     -100       pred_2(m4,j3,j1,f2)
+     -100       pred_2(m4,j3,j1,f3)
+     -100       pred_2(m4,j3,j1,f4)
+     -100       pred_2(m4,j3,j1,f5)
+     -100       pred_2(m5,j3,j1,f1)
+     -100       pred_2(m5,j3,j1,f2)
+     -100       pred_2(m5,j3,j1,f3)
+     -100       pred_2(m5,j3,j1,f4)
+     -100       pred_2(m5,j3,j1,f5)
+
+X(j1,j4)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+      100       pred_1(m1,j4,j1,f1)
+      100       pred_1(m1,j4,j1,f2)
+      100       pred_1(m1,j4,j1,f3)
+      100       pred_1(m1,j4,j1,f4)
+      100       pred_1(m1,j4,j1,f5)
+      100       pred_1(m2,j4,j1,f1)
+      100       pred_1(m2,j4,j1,f2)
+      100       pred_1(m2,j4,j1,f3)
+      100       pred_1(m2,j4,j1,f4)
+      100       pred_1(m2,j4,j1,f5)
+      100       pred_1(m3,j4,j1,f1)
+      100       pred_1(m3,j4,j1,f2)
+      100       pred_1(m3,j4,j1,f3)
+      100       pred_1(m3,j4,j1,f4)
+      100       pred_1(m3,j4,j1,f5)
+      100       pred_1(m4,j4,j1,f1)
+      100       pred_1(m4,j4,j1,f2)
+      100       pred_1(m4,j4,j1,f3)
+      100       pred_1(m4,j4,j1,f4)
+      100       pred_1(m4,j4,j1,f5)
+      100       pred_1(m5,j4,j1,f1)
+      100       pred_1(m5,j4,j1,f2)
+      100       pred_1(m5,j4,j1,f3)
+      100       pred_1(m5,j4,j1,f4)
+      100       pred_1(m5,j4,j1,f5)
+     -100       pred_2(m1,j4,j1,f1)
+     -100       pred_2(m1,j4,j1,f2)
+     -100       pred_2(m1,j4,j1,f3)
+     -100       pred_2(m1,j4,j1,f4)
+     -100       pred_2(m1,j4,j1,f5)
+     -100       pred_2(m2,j4,j1,f1)
+     -100       pred_2(m2,j4,j1,f2)
+     -100       pred_2(m2,j4,j1,f3)
+     -100       pred_2(m2,j4,j1,f4)
+     -100       pred_2(m2,j4,j1,f5)
+     -100       pred_2(m3,j4,j1,f1)
+     -100       pred_2(m3,j4,j1,f2)
+     -100       pred_2(m3,j4,j1,f3)
+     -100       pred_2(m3,j4,j1,f4)
+     -100       pred_2(m3,j4,j1,f5)
+     -100       pred_2(m4,j4,j1,f1)
+     -100       pred_2(m4,j4,j1,f2)
+     -100       pred_2(m4,j4,j1,f3)
+     -100       pred_2(m4,j4,j1,f4)
+     -100       pred_2(m4,j4,j1,f5)
+     -100       pred_2(m5,j4,j1,f1)
+     -100       pred_2(m5,j4,j1,f2)
+     -100       pred_2(m5,j4,j1,f3)
+     -100       pred_2(m5,j4,j1,f4)
+     -100       pred_2(m5,j4,j1,f5)
+
+REMAINING 25 ENTRIES SKIPPED
+
+---- Y  Binary variable equal to 1 if job j is assigned to factory g, and 0 otherwise
+
+Y(j1,f1)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+        1       ops_factory(j1)
+     -100       pred_1(m1,j2,j1,f1)
+     -100       pred_1(m1,j3,j1,f1)
+     -100       pred_1(m1,j4,j1,f1)
+     -100       pred_1(m1,j5,j1,f1)
+     -100       pred_1(m1,j6,j1,f1)
+     -100       pred_1(m1,j7,j1,f1)
+     -100       pred_1(m1,j8,j1,f1)
+     -100       pred_1(m2,j2,j1,f1)
+     -100       pred_1(m2,j3,j1,f1)
+     -100       pred_1(m2,j4,j1,f1)
+     -100       pred_1(m2,j5,j1,f1)
+     -100       pred_1(m2,j6,j1,f1)
+     -100       pred_1(m2,j7,j1,f1)
+     -100       pred_1(m2,j8,j1,f1)
+     -100       pred_1(m3,j2,j1,f1)
+     -100       pred_1(m3,j3,j1,f1)
+     -100       pred_1(m3,j4,j1,f1)
+     -100       pred_1(m3,j5,j1,f1)
+     -100       pred_1(m3,j6,j1,f1)
+     -100       pred_1(m3,j7,j1,f1)
+     -100       pred_1(m3,j8,j1,f1)
+     -100       pred_1(m4,j2,j1,f1)
+     -100       pred_1(m4,j3,j1,f1)
+     -100       pred_1(m4,j4,j1,f1)
+     -100       pred_1(m4,j5,j1,f1)
+     -100       pred_1(m4,j6,j1,f1)
+     -100       pred_1(m4,j7,j1,f1)
+     -100       pred_1(m4,j8,j1,f1)
+     -100       pred_1(m5,j2,j1,f1)
+     -100       pred_1(m5,j3,j1,f1)
+     -100       pred_1(m5,j4,j1,f1)
+     -100       pred_1(m5,j5,j1,f1)
+     -100       pred_1(m5,j6,j1,f1)
+     -100       pred_1(m5,j7,j1,f1)
+     -100       pred_1(m5,j8,j1,f1)
+     -100       pred_2(m1,j2,j1,f1)
+     -100       pred_2(m1,j3,j1,f1)
+     -100       pred_2(m1,j4,j1,f1)
+     -100       pred_2(m1,j5,j1,f1)
+     -100       pred_2(m1,j6,j1,f1)
+     -100       pred_2(m1,j7,j1,f1)
+     -100       pred_2(m1,j8,j1,f1)
+     -100       pred_2(m2,j2,j1,f1)
+     -100       pred_2(m2,j3,j1,f1)
+     -100       pred_2(m2,j4,j1,f1)
+     -100       pred_2(m2,j5,j1,f1)
+     -100       pred_2(m2,j6,j1,f1)
+     -100       pred_2(m2,j7,j1,f1)
+     -100       pred_2(m2,j8,j1,f1)
+     -100       pred_2(m3,j2,j1,f1)
+     -100       pred_2(m3,j3,j1,f1)
+     -100       pred_2(m3,j4,j1,f1)
+     -100       pred_2(m3,j5,j1,f1)
+     -100       pred_2(m3,j6,j1,f1)
+     -100       pred_2(m3,j7,j1,f1)
+     -100       pred_2(m3,j8,j1,f1)
+     -100       pred_2(m4,j2,j1,f1)
+     -100       pred_2(m4,j3,j1,f1)
+     -100       pred_2(m4,j4,j1,f1)
+     -100       pred_2(m4,j5,j1,f1)
+     -100       pred_2(m4,j6,j1,f1)
+     -100       pred_2(m4,j7,j1,f1)
+     -100       pred_2(m4,j8,j1,f1)
+     -100       pred_2(m5,j2,j1,f1)
+     -100       pred_2(m5,j3,j1,f1)
+     -100       pred_2(m5,j4,j1,f1)
+     -100       pred_2(m5,j5,j1,f1)
+     -100       pred_2(m5,j6,j1,f1)
+     -100       pred_2(m5,j7,j1,f1)
+     -100       pred_2(m5,j8,j1,f1)
+        1       cho_factory(f1,j1)
+
+Y(j1,f2)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+        1       ops_factory(j1)
+     -100       pred_1(m1,j2,j1,f2)
+     -100       pred_1(m1,j3,j1,f2)
+     -100       pred_1(m1,j4,j1,f2)
+     -100       pred_1(m1,j5,j1,f2)
+     -100       pred_1(m1,j6,j1,f2)
+     -100       pred_1(m1,j7,j1,f2)
+     -100       pred_1(m1,j8,j1,f2)
+     -100       pred_1(m2,j2,j1,f2)
+     -100       pred_1(m2,j3,j1,f2)
+     -100       pred_1(m2,j4,j1,f2)
+     -100       pred_1(m2,j5,j1,f2)
+     -100       pred_1(m2,j6,j1,f2)
+     -100       pred_1(m2,j7,j1,f2)
+     -100       pred_1(m2,j8,j1,f2)
+     -100       pred_1(m3,j2,j1,f2)
+     -100       pred_1(m3,j3,j1,f2)
+     -100       pred_1(m3,j4,j1,f2)
+     -100       pred_1(m3,j5,j1,f2)
+     -100       pred_1(m3,j6,j1,f2)
+     -100       pred_1(m3,j7,j1,f2)
+     -100       pred_1(m3,j8,j1,f2)
+     -100       pred_1(m4,j2,j1,f2)
+     -100       pred_1(m4,j3,j1,f2)
+     -100       pred_1(m4,j4,j1,f2)
+     -100       pred_1(m4,j5,j1,f2)
+     -100       pred_1(m4,j6,j1,f2)
+     -100       pred_1(m4,j7,j1,f2)
+     -100       pred_1(m4,j8,j1,f2)
+     -100       pred_1(m5,j2,j1,f2)
+     -100       pred_1(m5,j3,j1,f2)
+     -100       pred_1(m5,j4,j1,f2)
+     -100       pred_1(m5,j5,j1,f2)
+     -100       pred_1(m5,j6,j1,f2)
+     -100       pred_1(m5,j7,j1,f2)
+     -100       pred_1(m5,j8,j1,f2)
+     -100       pred_2(m1,j2,j1,f2)
+     -100       pred_2(m1,j3,j1,f2)
+     -100       pred_2(m1,j4,j1,f2)
+     -100       pred_2(m1,j5,j1,f2)
+     -100       pred_2(m1,j6,j1,f2)
+     -100       pred_2(m1,j7,j1,f2)
+     -100       pred_2(m1,j8,j1,f2)
+     -100       pred_2(m2,j2,j1,f2)
+     -100       pred_2(m2,j3,j1,f2)
+     -100       pred_2(m2,j4,j1,f2)
+     -100       pred_2(m2,j5,j1,f2)
+     -100       pred_2(m2,j6,j1,f2)
+     -100       pred_2(m2,j7,j1,f2)
+     -100       pred_2(m2,j8,j1,f2)
+     -100       pred_2(m3,j2,j1,f2)
+     -100       pred_2(m3,j3,j1,f2)
+     -100       pred_2(m3,j4,j1,f2)
+     -100       pred_2(m3,j5,j1,f2)
+     -100       pred_2(m3,j6,j1,f2)
+     -100       pred_2(m3,j7,j1,f2)
+     -100       pred_2(m3,j8,j1,f2)
+     -100       pred_2(m4,j2,j1,f2)
+     -100       pred_2(m4,j3,j1,f2)
+     -100       pred_2(m4,j4,j1,f2)
+     -100       pred_2(m4,j5,j1,f2)
+     -100       pred_2(m4,j6,j1,f2)
+     -100       pred_2(m4,j7,j1,f2)
+     -100       pred_2(m4,j8,j1,f2)
+     -100       pred_2(m5,j2,j1,f2)
+     -100       pred_2(m5,j3,j1,f2)
+     -100       pred_2(m5,j4,j1,f2)
+     -100       pred_2(m5,j5,j1,f2)
+     -100       pred_2(m5,j6,j1,f2)
+     -100       pred_2(m5,j7,j1,f2)
+     -100       pred_2(m5,j8,j1,f2)
+        1       cho_factory(f2,j1)
+
+Y(j1,f3)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+        1       ops_factory(j1)
+     -100       pred_1(m1,j2,j1,f3)
+     -100       pred_1(m1,j3,j1,f3)
+     -100       pred_1(m1,j4,j1,f3)
+     -100       pred_1(m1,j5,j1,f3)
+     -100       pred_1(m1,j6,j1,f3)
+     -100       pred_1(m1,j7,j1,f3)
+     -100       pred_1(m1,j8,j1,f3)
+     -100       pred_1(m2,j2,j1,f3)
+     -100       pred_1(m2,j3,j1,f3)
+     -100       pred_1(m2,j4,j1,f3)
+     -100       pred_1(m2,j5,j1,f3)
+     -100       pred_1(m2,j6,j1,f3)
+     -100       pred_1(m2,j7,j1,f3)
+     -100       pred_1(m2,j8,j1,f3)
+     -100       pred_1(m3,j2,j1,f3)
+     -100       pred_1(m3,j3,j1,f3)
+     -100       pred_1(m3,j4,j1,f3)
+     -100       pred_1(m3,j5,j1,f3)
+     -100       pred_1(m3,j6,j1,f3)
+     -100       pred_1(m3,j7,j1,f3)
+     -100       pred_1(m3,j8,j1,f3)
+     -100       pred_1(m4,j2,j1,f3)
+     -100       pred_1(m4,j3,j1,f3)
+     -100       pred_1(m4,j4,j1,f3)
+     -100       pred_1(m4,j5,j1,f3)
+     -100       pred_1(m4,j6,j1,f3)
+     -100       pred_1(m4,j7,j1,f3)
+     -100       pred_1(m4,j8,j1,f3)
+     -100       pred_1(m5,j2,j1,f3)
+     -100       pred_1(m5,j3,j1,f3)
+     -100       pred_1(m5,j4,j1,f3)
+     -100       pred_1(m5,j5,j1,f3)
+     -100       pred_1(m5,j6,j1,f3)
+     -100       pred_1(m5,j7,j1,f3)
+     -100       pred_1(m5,j8,j1,f3)
+     -100       pred_2(m1,j2,j1,f3)
+     -100       pred_2(m1,j3,j1,f3)
+     -100       pred_2(m1,j4,j1,f3)
+     -100       pred_2(m1,j5,j1,f3)
+     -100       pred_2(m1,j6,j1,f3)
+     -100       pred_2(m1,j7,j1,f3)
+     -100       pred_2(m1,j8,j1,f3)
+     -100       pred_2(m2,j2,j1,f3)
+     -100       pred_2(m2,j3,j1,f3)
+     -100       pred_2(m2,j4,j1,f3)
+     -100       pred_2(m2,j5,j1,f3)
+     -100       pred_2(m2,j6,j1,f3)
+     -100       pred_2(m2,j7,j1,f3)
+     -100       pred_2(m2,j8,j1,f3)
+     -100       pred_2(m3,j2,j1,f3)
+     -100       pred_2(m3,j3,j1,f3)
+     -100       pred_2(m3,j4,j1,f3)
+     -100       pred_2(m3,j5,j1,f3)
+     -100       pred_2(m3,j6,j1,f3)
+     -100       pred_2(m3,j7,j1,f3)
+     -100       pred_2(m3,j8,j1,f3)
+     -100       pred_2(m4,j2,j1,f3)
+     -100       pred_2(m4,j3,j1,f3)
+     -100       pred_2(m4,j4,j1,f3)
+     -100       pred_2(m4,j5,j1,f3)
+     -100       pred_2(m4,j6,j1,f3)
+     -100       pred_2(m4,j7,j1,f3)
+     -100       pred_2(m4,j8,j1,f3)
+     -100       pred_2(m5,j2,j1,f3)
+     -100       pred_2(m5,j3,j1,f3)
+     -100       pred_2(m5,j4,j1,f3)
+     -100       pred_2(m5,j5,j1,f3)
+     -100       pred_2(m5,j6,j1,f3)
+     -100       pred_2(m5,j7,j1,f3)
+     -100       pred_2(m5,j8,j1,f3)
+        1       cho_factory(f3,j1)
+
+REMAINING 37 ENTRIES SKIPPED
+
+---- Cmax  
+
+Cmax
+                (.LO, .L, .UP, .M = -INF, 0, +INF, 0)
+        1       makespan(m5,j1)
+        1       makespan(m5,j2)
+        1       makespan(m5,j3)
+        1       makespan(m5,j4)
+        1       makespan(m5,j5)
+        1       makespan(m5,j6)
+        1       makespan(m5,j7)
+        1       makespan(m5,j8)
+
+GAMS 33.2.0  r4f23b21 Released Dec  1, 2020 DEX-DEG x86 64bit/Mac OS X - 01/13/21 15:21:40 Page 5
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Model Statistics    SOLVE modelone Using MIP From line 118
+
+
+MODEL STATISTICS
+
+BLOCKS OF EQUATIONS           7     SINGLE EQUATIONS        1,531
+BLOCKS OF VARIABLES           4     SINGLE VARIABLES          109
+NON ZERO ELEMENTS         7,238     DISCRETE VARIABLES         68
+
+
+GENERATION TIME      =        0.071 SECONDS      5 MB  33.2.0 r4f23b21 DEX-DEG
+GAMS 33.2.0  r4f23b21 Released Dec  1, 2020 DEX-DEG x86 64bit/Mac OS X - 01/13/21 15:21:40 Page 6
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Solution Report     SOLVE modelone Using MIP From line 118
+
+
+               S O L V E      S U M M A R Y
+
+     MODEL   modelone            OBJECTIVE  Cmax
+     TYPE    MIP                 DIRECTION  MINIMIZE
+     SOLVER  CPLEX               FROM LINE  118
+
+**** SOLVER STATUS     1 Normal Completion         
+**** MODEL STATUS      1 Optimal                   
+**** OBJECTIVE VALUE               56.1505
+
+ RESOURCE USAGE, LIMIT          2.533      3000.000
+ ITERATION COUNT, LIMIT     31696    2147483647
+--- *** This solver runs with a demo license. No commercial use.
+
+*** Error Cannot open parameter file "/Users/erencemsalta/Desktop/HW_2/Model_1/cplex.opt"
+*** Error Error code = 2; No such file or directory
+
+--- Space for names approximately 0.04 Mb
+--- Use option 'names no' to turn use of names off
+--- GMO memory 0.68 Mb (peak 0.68 Mb)
+--- Dictionary memory 0.00 Mb
+--- Cplex 12.10.0.0 link memory 0.02 Mb (peak 0.15 Mb)
+--- Starting Cplex
+
+
+--- MIP status (101): integer optimal solution.
+--- Cplex Time: 1.81sec (det. 1419.18 ticks)
+
+--- Fixing integer variables and solving final LP...
+
+
+--- Fixed MIP status (1): optimal.
+--- Cplex Time: 0.00sec (det. 2.11 ticks)
+
+
+Proven optimal solution
+MIP Solution:           56.150455    (31696 iterations, 3276 nodes)
+Final Solve:            56.150455    (73 iterations)
+
+Best possible:          56.150455
+Absolute gap:            0.000000
+Relative gap:            0.000000
+
+
+---- EQU ops_factory  ensures that each job must be assigned to one and only one factory.
+
+          LOWER          LEVEL          UPPER         MARGINAL
+
+j1         1.0000         1.0000         1.0000          .          
+j2         1.0000         1.0000         1.0000          .          
+j3         1.0000         1.0000         1.0000          .          
+j4         1.0000         1.0000         1.0000          .          
+j5         1.0000         1.0000         1.0000          .          
+j6         1.0000         1.0000         1.0000          .          
+j7         1.0000         1.0000         1.0000          .          
+j8         1.0000         1.0000         1.0000          .          
+
+---- EQU ops_queue  makes sure the next operation of a job cannot start before its previous operation has been finished.
+
+             LOWER          LEVEL          UPPER         MARGINAL
+
+m1.j1         1.0000         1.0000        +INF            1.0000      
+m1.j2         4.2684         5.2684        +INF             .          
+m1.j3         4.2407         9.5091        +INF             .          
+m1.j4         4.5139        34.0631        +INF             .          
+m1.j5         5.3197        14.8288        +INF             .          
+m1.j6         4.2759        29.5493        +INF             .          
+m1.j7         5.6627        25.2733        +INF             .          
+m1.j8         4.7818        19.6106        +INF             .          
+m2.j1         4.6867         6.1158        +INF             .          
+m2.j2         2.0000         4.7797        +INF             .          
+m2.j3         5.0004         5.5393        +INF             .          
+m2.j4         6.8835         8.6653        +INF             .          
+m2.j5         6.1870         6.4067        +INF             .          
+m2.j6         4.0006         6.2957        +INF             .          
+m2.j7         6.5710         6.5710        +INF            1.0000      
+m2.j8         4.0379         5.6627        +INF             .          
+m3.j1         5.3277         5.3277        +INF            EPS         
+m3.j2         4.0284         6.4238        +INF             .          
+m3.j3         4.0911         5.5145        +INF             .          
+m3.j4         4.2792         5.6145        +INF             .          
+m3.j5         3.8468         5.7165        +INF             .          
+m3.j6         5.0061         8.2188        +INF             .          
+m3.j7         7.2133         7.2133        +INF            1.0000      
+m3.j8         4.8924         6.5710        +INF             .          
+m4.j1         5.4636         5.4636        +INF            EPS         
+m4.j2         4.6061         6.0412        +INF             .          
+m4.j3         5.3439         7.2940        +INF             .          
+m4.j4         3.7010         3.7010        +INF            EPS         
+m4.j5         5.7100         6.6150        +INF             .          
+m4.j6         4.0054         4.0054        +INF            EPS         
+m4.j7         5.0000         5.0000        +INF            1.0000      
+m4.j8         4.7374         7.2133        +INF             .          
+m5.j1         3.1701         5.3877        +INF             .          
+m5.j2         5.9346         6.7162        +INF             .          
+m5.j3         4.3377         5.7100        +INF             .          
+m5.j4         3.6245         4.1065        +INF             .          
+m5.j5         6.0173         6.0173        +INF            EPS         
+m5.j6         4.0931         4.4567        +INF             .          
+m5.j7         4.3752         4.3752        +INF            1.0000      
+m5.j8         4.4734         5.0000        +INF             .          
+
+---- EQU pred_1  state that a job can be processed on a machine only after its immediate predecessor has been completed.
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+m1.j2.j1.f1      -199.0000      -104.2684        +INF             .          
+m1.j2.j1.f2      -199.0000        95.7316        +INF             .          
+m1.j2.j1.f3      -199.0000        95.7316        +INF             .          
+m1.j2.j1.f4      -199.0000        95.7316        +INF             .          
+m1.j2.j1.f5      -199.0000        95.7316        +INF             .          
+m1.j3.j1.f1      -199.0000      -108.5091        +INF             .          
+m1.j3.j1.f2      -199.0000        91.4909        +INF             .          
+m1.j3.j1.f3      -199.0000        91.4909        +INF             .          
+m1.j3.j1.f4      -199.0000        91.4909        +INF             .          
+m1.j3.j1.f5      -199.0000        91.4909        +INF             .          
+m1.j3.j2.f1      -195.7316      -104.2407        +INF             .          
+m1.j3.j2.f2      -195.7316        95.7593        +INF             .          
+m1.j3.j2.f3      -195.7316        95.7593        +INF             .          
+m1.j3.j2.f4      -195.7316        95.7593        +INF             .          
+m1.j3.j2.f5      -195.7316        95.7593        +INF             .          
+m1.j4.j1.f1      -199.0000      -133.0631        +INF             .          
+m1.j4.j1.f2      -199.0000        66.9369        +INF             .          
+m1.j4.j1.f3      -199.0000        66.9369        +INF             .          
+m1.j4.j1.f4      -199.0000        66.9369        +INF             .          
+m1.j4.j1.f5      -199.0000        66.9369        +INF             .          
+m1.j4.j2.f1      -195.7316      -128.7947        +INF             .          
+m1.j4.j2.f2      -195.7316        71.2053        +INF             .          
+m1.j4.j2.f3      -195.7316        71.2053        +INF             .          
+m1.j4.j2.f4      -195.7316        71.2053        +INF             .          
+m1.j4.j2.f5      -195.7316        71.2053        +INF             .          
+m1.j4.j3.f1      -195.7593      -124.5540        +INF             .          
+m1.j4.j3.f2      -195.7593        75.4460        +INF             .          
+m1.j4.j3.f3      -195.7593        75.4460        +INF             .          
+m1.j4.j3.f4      -195.7593        75.4460        +INF             .          
+m1.j4.j3.f5      -195.7593        75.4460        +INF             .          
+m1.j5.j1.f1      -199.0000      -113.8288        +INF             .          
+m1.j5.j1.f2      -199.0000        86.1712        +INF             .          
+m1.j5.j1.f3      -199.0000        86.1712        +INF             .          
+m1.j5.j1.f4      -199.0000        86.1712        +INF             .          
+m1.j5.j1.f5      -199.0000        86.1712        +INF             .          
+m1.j5.j2.f1      -195.7316      -109.5604        +INF             .          
+m1.j5.j2.f2      -195.7316        90.4396        +INF             .          
+m1.j5.j2.f3      -195.7316        90.4396        +INF             .          
+m1.j5.j2.f4      -195.7316        90.4396        +INF             .          
+m1.j5.j2.f5      -195.7316        90.4396        +INF             .          
+m1.j5.j3.f1      -195.7593      -105.3197        +INF             .          
+m1.j5.j3.f2      -195.7593        94.6803        +INF             .          
+m1.j5.j3.f3      -195.7593        94.6803        +INF             .          
+m1.j5.j3.f4      -195.7593        94.6803        +INF             .          
+m1.j5.j3.f5      -195.7593        94.6803        +INF             .          
+m1.j5.j4.f1      -195.4861      -180.7657        +INF             .          
+m1.j5.j4.f2      -195.4861        19.2343        +INF             .          
+m1.j5.j4.f3      -195.4861        19.2343        +INF             .          
+m1.j5.j4.f4      -195.4861        19.2343        +INF             .          
+m1.j5.j4.f5      -195.4861        19.2343        +INF             .          
+m1.j6.j1.f1      -199.0000      -128.5493        +INF             .          
+m1.j6.j1.f2      -199.0000        71.4507        +INF             .          
+m1.j6.j1.f3      -199.0000        71.4507        +INF             .          
+m1.j6.j1.f4      -199.0000        71.4507        +INF             .          
+m1.j6.j1.f5      -199.0000        71.4507        +INF             .          
+m1.j6.j2.f1      -195.7316      -124.2809        +INF             .          
+m1.j6.j2.f2      -195.7316        75.7191        +INF             .          
+m1.j6.j2.f3      -195.7316        75.7191        +INF             .          
+m1.j6.j2.f4      -195.7316        75.7191        +INF             .          
+m1.j6.j2.f5      -195.7316        75.7191        +INF             .          
+m1.j6.j3.f1      -195.7593      -120.0402        +INF             .          
+m1.j6.j3.f2      -195.7593        79.9598        +INF             .          
+m1.j6.j3.f3      -195.7593        79.9598        +INF             .          
+m1.j6.j3.f4      -195.7593        79.9598        +INF             .          
+m1.j6.j3.f5      -195.7593        79.9598        +INF             .          
+m1.j6.j4.f1      -195.4861      -195.4861        +INF            EPS         
+m1.j6.j4.f2      -195.4861         4.5139        +INF             .          
+m1.j6.j4.f3      -195.4861         4.5139        +INF             .          
+m1.j6.j4.f4      -195.4861         4.5139        +INF             .          
+m1.j6.j4.f5      -195.4861         4.5139        +INF             .          
+m1.j6.j5.f1      -194.6803      -114.7205        +INF             .          
+m1.j6.j5.f2      -194.6803        85.2795        +INF             .          
+m1.j6.j5.f3      -194.6803        85.2795        +INF             .          
+m1.j6.j5.f4      -194.6803        85.2795        +INF             .          
+m1.j6.j5.f5      -194.6803        85.2795        +INF             .          
+m1.j7.j1.f1      -199.0000      -124.2733        +INF             .          
+m1.j7.j1.f2      -199.0000        75.7267        +INF             .          
+m1.j7.j1.f3      -199.0000        75.7267        +INF             .          
+m1.j7.j1.f4      -199.0000        75.7267        +INF             .          
+m1.j7.j1.f5      -199.0000        75.7267        +INF             .          
+m1.j7.j2.f1      -195.7316      -120.0049        +INF             .          
+m1.j7.j2.f2      -195.7316        79.9951        +INF             .          
+m1.j7.j2.f3      -195.7316        79.9951        +INF             .          
+m1.j7.j2.f4      -195.7316        79.9951        +INF             .          
+m1.j7.j2.f5      -195.7316        79.9951        +INF             .          
+m1.j7.j3.f1      -195.7593      -115.7642        +INF             .          
+m1.j7.j3.f2      -195.7593        84.2358        +INF             .          
+m1.j7.j3.f3      -195.7593        84.2358        +INF             .          
+m1.j7.j3.f4      -195.7593        84.2358        +INF             .          
+m1.j7.j3.f5      -195.7593        84.2358        +INF             .          
+m1.j7.j4.f1      -195.4861      -191.2102        +INF             .          
+m1.j7.j4.f2      -195.4861         8.7898        +INF             .          
+m1.j7.j4.f3      -195.4861         8.7898        +INF             .          
+m1.j7.j4.f4      -195.4861         8.7898        +INF             .          
+m1.j7.j4.f5      -195.4861         8.7898        +INF             .          
+m1.j7.j5.f1      -194.6803      -110.4446        +INF             .          
+m1.j7.j5.f2      -194.6803        89.5554        +INF             .          
+m1.j7.j5.f3      -194.6803        89.5554        +INF             .          
+m1.j7.j5.f4      -194.6803        89.5554        +INF             .          
+m1.j7.j5.f5      -194.6803        89.5554        +INF             .          
+m1.j7.j6.f1      -195.7241      -195.7241        +INF            EPS         
+m1.j7.j6.f2      -195.7241         4.2759        +INF             .          
+m1.j7.j6.f3      -195.7241         4.2759        +INF             .          
+m1.j7.j6.f4      -195.7241         4.2759        +INF             .          
+m1.j7.j6.f5      -195.7241         4.2759        +INF             .          
+m1.j8.j1.f1      -199.0000      -118.6106        +INF             .          
+m1.j8.j1.f2      -199.0000        81.3894        +INF             .          
+m1.j8.j1.f3      -199.0000        81.3894        +INF             .          
+m1.j8.j1.f4      -199.0000        81.3894        +INF             .          
+m1.j8.j1.f5      -199.0000        81.3894        +INF             .          
+m1.j8.j2.f1      -195.7316      -114.3422        +INF             .          
+m1.j8.j2.f2      -195.7316        85.6578        +INF             .          
+m1.j8.j2.f3      -195.7316        85.6578        +INF             .          
+m1.j8.j2.f4      -195.7316        85.6578        +INF             .          
+m1.j8.j2.f5      -195.7316        85.6578        +INF             .          
+m1.j8.j3.f1      -195.7593      -110.1015        +INF             .          
+m1.j8.j3.f2      -195.7593        89.8985        +INF             .          
+m1.j8.j3.f3      -195.7593        89.8985        +INF             .          
+m1.j8.j3.f4      -195.7593        89.8985        +INF             .          
+m1.j8.j3.f5      -195.7593        89.8985        +INF             .          
+m1.j8.j4.f1      -195.4861      -185.5475        +INF             .          
+m1.j8.j4.f2      -195.4861        14.4525        +INF             .          
+m1.j8.j4.f3      -195.4861        14.4525        +INF             .          
+m1.j8.j4.f4      -195.4861        14.4525        +INF             .          
+m1.j8.j4.f5      -195.4861        14.4525        +INF             .          
+m1.j8.j5.f1      -194.6803      -104.7818        +INF             .          
+m1.j8.j5.f2      -194.6803        95.2182        +INF             .          
+m1.j8.j5.f3      -194.6803        95.2182        +INF             .          
+m1.j8.j5.f4      -194.6803        95.2182        +INF             .          
+m1.j8.j5.f5      -194.6803        95.2182        +INF             .          
+m1.j8.j6.f1      -195.7241      -190.0613        +INF             .          
+m1.j8.j6.f2      -195.7241         9.9387        +INF             .          
+m1.j8.j6.f3      -195.7241         9.9387        +INF             .          
+m1.j8.j6.f4      -195.7241         9.9387        +INF             .          
+m1.j8.j6.f5      -195.7241         9.9387        +INF             .          
+m1.j8.j7.f1      -194.3373      -194.3373        +INF            1.0000      
+m1.j8.j7.f2      -194.3373         5.6627        +INF             .          
+m1.j8.j7.f3      -194.3373         5.6627        +INF             .          
+m1.j8.j7.f4      -194.3373         5.6627        +INF             .          
+m1.j8.j7.f5      -194.3373         5.6627        +INF             .          
+m2.j2.j1.f1      -195.3133      -102.9323        +INF             .          
+m2.j2.j1.f2      -195.3133        97.0677        +INF             .          
+m2.j2.j1.f3      -195.3133        97.0677        +INF             .          
+m2.j2.j1.f4      -195.3133        97.0677        +INF             .          
+m2.j2.j1.f5      -195.3133        97.0677        +INF             .          
+m2.j3.j1.f1      -195.3133      -107.9327        +INF             .          
+m2.j3.j1.f2      -195.3133        92.0673        +INF             .          
+m2.j3.j1.f3      -195.3133        92.0673        +INF             .          
+m2.j3.j1.f4      -195.3133        92.0673        +INF             .          
+m2.j3.j1.f5      -195.3133        92.0673        +INF             .          
+m2.j3.j2.f1      -198.0000      -105.0004        +INF             .          
+m2.j3.j2.f2      -198.0000        94.9996        +INF             .          
+m2.j3.j2.f3      -198.0000        94.9996        +INF             .          
+m2.j3.j2.f4      -198.0000        94.9996        +INF             .          
+m2.j3.j2.f5      -198.0000        94.9996        +INF             .          
+m2.j4.j1.f1      -195.3133      -135.6127        +INF             .          
+m2.j4.j1.f2      -195.3133        64.3873        +INF             .          
+m2.j4.j1.f3      -195.3133        64.3873        +INF             .          
+m2.j4.j1.f4      -195.3133        64.3873        +INF             .          
+m2.j4.j1.f5      -195.3133        64.3873        +INF             .          
+m2.j4.j2.f1      -198.0000      -132.6804        +INF             .          
+m2.j4.j2.f2      -198.0000        67.3196        +INF             .          
+m2.j4.j2.f3      -198.0000        67.3196        +INF             .          
+m2.j4.j2.f4      -198.0000        67.3196        +INF             .          
+m2.j4.j2.f5      -198.0000        67.3196        +INF             .          
+m2.j4.j3.f1      -194.9996      -127.6800        +INF             .          
+m2.j4.j3.f2      -194.9996        72.3200        +INF             .          
+m2.j4.j3.f3      -194.9996        72.3200        +INF             .          
+m2.j4.j3.f4      -194.9996        72.3200        +INF             .          
+m2.j4.j3.f5      -194.9996        72.3200        +INF             .          
+m2.j5.j1.f1      -195.3133      -114.1197        +INF             .          
+m2.j5.j1.f2      -195.3133        85.8803        +INF             .          
+m2.j5.j1.f3      -195.3133        85.8803        +INF             .          
+m2.j5.j1.f4      -195.3133        85.8803        +INF             .          
+m2.j5.j1.f5      -195.3133        85.8803        +INF             .          
+m2.j5.j2.f1      -198.0000      -111.1874        +INF             .          
+m2.j5.j2.f2      -198.0000        88.8126        +INF             .          
+m2.j5.j2.f3      -198.0000        88.8126        +INF             .          
+m2.j5.j2.f4      -198.0000        88.8126        +INF             .          
+m2.j5.j2.f5      -198.0000        88.8126        +INF             .          
+m2.j5.j3.f1      -194.9996      -106.1870        +INF             .          
+m2.j5.j3.f2      -194.9996        93.8130        +INF             .          
+m2.j5.j3.f3      -194.9996        93.8130        +INF             .          
+m2.j5.j3.f4      -194.9996        93.8130        +INF             .          
+m2.j5.j3.f5      -194.9996        93.8130        +INF             .          
+m2.j5.j4.f1      -193.1165      -178.5070        +INF             .          
+m2.j5.j4.f2      -193.1165        21.4930        +INF             .          
+m2.j5.j4.f3      -193.1165        21.4930        +INF             .          
+m2.j5.j4.f4      -193.1165        21.4930        +INF             .          
+m2.j5.j4.f5      -193.1165        21.4930        +INF             .          
+m2.j6.j1.f1      -195.3133      -128.7292        +INF             .          
+m2.j6.j1.f2      -195.3133        71.2708        +INF             .          
+m2.j6.j1.f3      -195.3133        71.2708        +INF             .          
+m2.j6.j1.f4      -195.3133        71.2708        +INF             .          
+m2.j6.j1.f5      -195.3133        71.2708        +INF             .          
+m2.j6.j2.f1      -198.0000      -125.7969        +INF             .          
+m2.j6.j2.f2      -198.0000        74.2031        +INF             .          
+m2.j6.j2.f3      -198.0000        74.2031        +INF             .          
+m2.j6.j2.f4      -198.0000        74.2031        +INF             .          
+m2.j6.j2.f5      -198.0000        74.2031        +INF             .          
+m2.j6.j3.f1      -194.9996      -120.7965        +INF             .          
+m2.j6.j3.f2      -194.9996        79.2035        +INF             .          
+m2.j6.j3.f3      -194.9996        79.2035        +INF             .          
+m2.j6.j3.f4      -194.9996        79.2035        +INF             .          
+m2.j6.j3.f5      -194.9996        79.2035        +INF             .          
+m2.j6.j4.f1      -193.1165      -193.1165        +INF            EPS         
+m2.j6.j4.f2      -193.1165         6.8835        +INF             .          
+m2.j6.j4.f3      -193.1165         6.8835        +INF             .          
+m2.j6.j4.f4      -193.1165         6.8835        +INF             .          
+m2.j6.j4.f5      -193.1165         6.8835        +INF             .          
+m2.j6.j5.f1      -193.8130      -114.6095        +INF             .          
+m2.j6.j5.f2      -193.8130        85.3905        +INF             .          
+m2.j6.j5.f3      -193.8130        85.3905        +INF             .          
+m2.j6.j5.f4      -193.8130        85.3905        +INF             .          
+m2.j6.j5.f5      -193.8130        85.3905        +INF             .          
+m2.j7.j1.f1      -195.3133      -124.7285        +INF             .          
+m2.j7.j1.f2      -195.3133        75.2715        +INF             .          
+m2.j7.j1.f3      -195.3133        75.2715        +INF             .          
+m2.j7.j1.f4      -195.3133        75.2715        +INF             .          
+m2.j7.j1.f5      -195.3133        75.2715        +INF             .          
+m2.j7.j2.f1      -198.0000      -121.7963        +INF             .          
+m2.j7.j2.f2      -198.0000        78.2037        +INF             .          
+m2.j7.j2.f3      -198.0000        78.2037        +INF             .          
+m2.j7.j2.f4      -198.0000        78.2037        +INF             .          
+m2.j7.j2.f5      -198.0000        78.2037        +INF             .          
+m2.j7.j3.f1      -194.9996      -116.7959        +INF             .          
+m2.j7.j3.f2      -194.9996        83.2041        +INF             .          
+m2.j7.j3.f3      -194.9996        83.2041        +INF             .          
+m2.j7.j3.f4      -194.9996        83.2041        +INF             .          
+m2.j7.j3.f5      -194.9996        83.2041        +INF             .          
+m2.j7.j4.f1      -193.1165      -189.1159        +INF             .          
+m2.j7.j4.f2      -193.1165        10.8841        +INF             .          
+m2.j7.j4.f3      -193.1165        10.8841        +INF             .          
+m2.j7.j4.f4      -193.1165        10.8841        +INF             .          
+m2.j7.j4.f5      -193.1165        10.8841        +INF             .          
+m2.j7.j5.f1      -193.8130      -110.6089        +INF             .          
+m2.j7.j5.f2      -193.8130        89.3911        +INF             .          
+m2.j7.j5.f3      -193.8130        89.3911        +INF             .          
+m2.j7.j5.f4      -193.8130        89.3911        +INF             .          
+m2.j7.j5.f5      -193.8130        89.3911        +INF             .          
+m2.j7.j6.f1      -195.9994      -195.9994        +INF            EPS         
+m2.j7.j6.f2      -195.9994         4.0006        +INF             .          
+m2.j7.j6.f3      -195.9994         4.0006        +INF             .          
+m2.j7.j6.f4      -195.9994         4.0006        +INF             .          
+m2.j7.j6.f5      -195.9994         4.0006        +INF             .          
+m2.j8.j1.f1      -195.3133      -118.1576        +INF             .          
+m2.j8.j1.f2      -195.3133        81.8424        +INF             .          
+m2.j8.j1.f3      -195.3133        81.8424        +INF             .          
+m2.j8.j1.f4      -195.3133        81.8424        +INF             .          
+m2.j8.j1.f5      -195.3133        81.8424        +INF             .          
+m2.j8.j2.f1      -198.0000      -115.2253        +INF             .          
+m2.j8.j2.f2      -198.0000        84.7747        +INF             .          
+m2.j8.j2.f3      -198.0000        84.7747        +INF             .          
+m2.j8.j2.f4      -198.0000        84.7747        +INF             .          
+m2.j8.j2.f5      -198.0000        84.7747        +INF             .          
+m2.j8.j3.f1      -194.9996      -110.2249        +INF             .          
+m2.j8.j3.f2      -194.9996        89.7751        +INF             .          
+m2.j8.j3.f3      -194.9996        89.7751        +INF             .          
+m2.j8.j3.f4      -194.9996        89.7751        +INF             .          
+m2.j8.j3.f5      -194.9996        89.7751        +INF             .          
+m2.j8.j4.f1      -193.1165      -182.5449        +INF             .          
+m2.j8.j4.f2      -193.1165        17.4551        +INF             .          
+m2.j8.j4.f3      -193.1165        17.4551        +INF             .          
+m2.j8.j4.f4      -193.1165        17.4551        +INF             .          
+m2.j8.j4.f5      -193.1165        17.4551        +INF             .          
+m2.j8.j5.f1      -193.8130      -104.0379        +INF             .          
+m2.j8.j5.f2      -193.8130        95.9621        +INF             .          
+m2.j8.j5.f3      -193.8130        95.9621        +INF             .          
+m2.j8.j5.f4      -193.8130        95.9621        +INF             .          
+m2.j8.j5.f5      -193.8130        95.9621        +INF             .          
+m2.j8.j6.f1      -195.9994      -189.4284        +INF             .          
+m2.j8.j6.f2      -195.9994        10.5716        +INF             .          
+m2.j8.j6.f3      -195.9994        10.5716        +INF             .          
+m2.j8.j6.f4      -195.9994        10.5716        +INF             .          
+m2.j8.j6.f5      -195.9994        10.5716        +INF             .          
+m2.j8.j7.f1      -193.4290      -193.4290        +INF            EPS         
+m2.j8.j7.f2      -193.4290         6.5710        +INF             .          
+m2.j8.j7.f3      -193.4290         6.5710        +INF             .          
+m2.j8.j7.f4      -193.4290         6.5710        +INF             .          
+m2.j8.j7.f5      -193.4290         6.5710        +INF             .          
+m3.j2.j1.f1      -194.6723      -104.0284        +INF             .          
+m3.j2.j1.f2      -194.6723        95.9716        +INF             .          
+m3.j2.j1.f3      -194.6723        95.9716        +INF             .          
+m3.j2.j1.f4      -194.6723        95.9716        +INF             .          
+m3.j2.j1.f5      -194.6723        95.9716        +INF             .          
+m3.j3.j1.f1      -194.6723      -108.1195        +INF             .          
+m3.j3.j1.f2      -194.6723        91.8805        +INF             .          
+m3.j3.j1.f3      -194.6723        91.8805        +INF             .          
+m3.j3.j1.f4      -194.6723        91.8805        +INF             .          
+m3.j3.j1.f5      -194.6723        91.8805        +INF             .          
+m3.j3.j2.f1      -195.9716      -104.0911        +INF             .          
+m3.j3.j2.f2      -195.9716        95.9089        +INF             .          
+m3.j3.j2.f3      -195.9716        95.9089        +INF             .          
+m3.j3.j2.f4      -195.9716        95.9089        +INF             .          
+m3.j3.j2.f5      -195.9716        95.9089        +INF             .          
+m3.j4.j1.f1      -194.6723      -135.8996        +INF             .          
+m3.j4.j1.f2      -194.6723        64.1004        +INF             .          
+m3.j4.j1.f3      -194.6723        64.1004        +INF             .          
+m3.j4.j1.f4      -194.6723        64.1004        +INF             .          
+m3.j4.j1.f5      -194.6723        64.1004        +INF             .          
+m3.j4.j2.f1      -195.9716      -131.8712        +INF             .          
+m3.j4.j2.f2      -195.9716        68.1288        +INF             .          
+m3.j4.j2.f3      -195.9716        68.1288        +INF             .          
+m3.j4.j2.f4      -195.9716        68.1288        +INF             .          
+m3.j4.j2.f5      -195.9716        68.1288        +INF             .          
+m3.j4.j3.f1      -195.9089      -127.7801        +INF             .          
+m3.j4.j3.f2      -195.9089        72.2199        +INF             .          
+m3.j4.j3.f3      -195.9089        72.2199        +INF             .          
+m3.j4.j3.f4      -195.9089        72.2199        +INF             .          
+m3.j4.j3.f5      -195.9089        72.2199        +INF             .          
+m3.j5.j1.f1      -194.6723      -114.5085        +INF             .          
+m3.j5.j1.f2      -194.6723        85.4915        +INF             .          
+m3.j5.j1.f3      -194.6723        85.4915        +INF             .          
+m3.j5.j1.f4      -194.6723        85.4915        +INF             .          
+m3.j5.j1.f5      -194.6723        85.4915        +INF             .          
+m3.j5.j2.f1      -195.9716      -110.4801        +INF             .          
+m3.j5.j2.f2      -195.9716        89.5199        +INF             .          
+m3.j5.j2.f3      -195.9716        89.5199        +INF             .          
+m3.j5.j2.f4      -195.9716        89.5199        +INF             .          
+m3.j5.j2.f5      -195.9716        89.5199        +INF             .          
+m3.j5.j3.f1      -195.9089      -106.3890        +INF             .          
+m3.j5.j3.f2      -195.9089        93.6110        +INF             .          
+m3.j5.j3.f3      -195.9089        93.6110        +INF             .          
+m3.j5.j3.f4      -195.9089        93.6110        +INF             .          
+m3.j5.j3.f5      -195.9089        93.6110        +INF             .          
+m3.j5.j4.f1      -195.7208      -178.6089        +INF             .          
+m3.j5.j4.f2      -195.7208        21.3911        +INF             .          
+m3.j5.j4.f3      -195.7208        21.3911        +INF             .          
+m3.j5.j4.f4      -195.7208        21.3911        +INF             .          
+m3.j5.j4.f5      -195.7208        21.3911        +INF             .          
+m3.j6.j1.f1      -194.6723      -131.6203        +INF             .          
+m3.j6.j1.f2      -194.6723        68.3797        +INF             .          
+m3.j6.j1.f3      -194.6723        68.3797        +INF             .          
+m3.j6.j1.f4      -194.6723        68.3797        +INF             .          
+m3.j6.j1.f5      -194.6723        68.3797        +INF             .          
+m3.j6.j2.f1      -195.9716      -127.5919        +INF             .          
+m3.j6.j2.f2      -195.9716        72.4081        +INF             .          
+m3.j6.j2.f3      -195.9716        72.4081        +INF             .          
+m3.j6.j2.f4      -195.9716        72.4081        +INF             .          
+m3.j6.j2.f5      -195.9716        72.4081        +INF             .          
+m3.j6.j3.f1      -195.9089      -123.5008        +INF             .          
+m3.j6.j3.f2      -195.9089        76.4992        +INF             .          
+m3.j6.j3.f3      -195.9089        76.4992        +INF             .          
+m3.j6.j3.f4      -195.9089        76.4992        +INF             .          
+m3.j6.j3.f5      -195.9089        76.4992        +INF             .          
+m3.j6.j4.f1      -195.7208      -195.7208        +INF            EPS         
+m3.j6.j4.f2      -195.7208         4.2792        +INF             .          
+m3.j6.j4.f3      -195.7208         4.2792        +INF             .          
+m3.j6.j4.f4      -195.7208         4.2792        +INF             .          
+m3.j6.j4.f5      -195.7208         4.2792        +INF             .          
+m3.j6.j5.f1      -196.1532      -117.1119        +INF             .          
+m3.j6.j5.f2      -196.1532        82.8881        +INF             .          
+m3.j6.j5.f3      -196.1532        82.8881        +INF             .          
+m3.j6.j5.f4      -196.1532        82.8881        +INF             .          
+m3.j6.j5.f5      -196.1532        82.8881        +INF             .          
+m3.j7.j1.f1      -194.6723      -126.6142        +INF             .          
+m3.j7.j1.f2      -194.6723        73.3858        +INF             .          
+m3.j7.j1.f3      -194.6723        73.3858        +INF             .          
+m3.j7.j1.f4      -194.6723        73.3858        +INF             .          
+m3.j7.j1.f5      -194.6723        73.3858        +INF             .          
+m3.j7.j2.f1      -195.9716      -122.5858        +INF             .          
+m3.j7.j2.f2      -195.9716        77.4142        +INF             .          
+m3.j7.j2.f3      -195.9716        77.4142        +INF             .          
+m3.j7.j2.f4      -195.9716        77.4142        +INF             .          
+m3.j7.j2.f5      -195.9716        77.4142        +INF             .          
+m3.j7.j3.f1      -195.9089      -118.4947        +INF             .          
+m3.j7.j3.f2      -195.9089        81.5053        +INF             .          
+m3.j7.j3.f3      -195.9089        81.5053        +INF             .          
+m3.j7.j3.f4      -195.9089        81.5053        +INF             .          
+m3.j7.j3.f5      -195.9089        81.5053        +INF             .          
+m3.j7.j4.f1      -195.7208      -190.7147        +INF             .          
+m3.j7.j4.f2      -195.7208         9.2853        +INF             .          
+m3.j7.j4.f3      -195.7208         9.2853        +INF             .          
+m3.j7.j4.f4      -195.7208         9.2853        +INF             .          
+m3.j7.j4.f5      -195.7208         9.2853        +INF             .          
+m3.j7.j5.f1      -196.1532      -112.1057        +INF             .          
+m3.j7.j5.f2      -196.1532        87.8943        +INF             .          
+m3.j7.j5.f3      -196.1532        87.8943        +INF             .          
+m3.j7.j5.f4      -196.1532        87.8943        +INF             .          
+m3.j7.j5.f5      -196.1532        87.8943        +INF             .          
+m3.j7.j6.f1      -194.9939      -194.9939        +INF            EPS         
+m3.j7.j6.f2      -194.9939         5.0061        +INF             .          
+m3.j7.j6.f3      -194.9939         5.0061        +INF             .          
+m3.j7.j6.f4      -194.9939         5.0061        +INF             .          
+m3.j7.j6.f5      -194.9939         5.0061        +INF             .          
+m3.j8.j1.f1      -194.6723      -119.4009        +INF             .          
+m3.j8.j1.f2      -194.6723        80.5991        +INF             .          
+m3.j8.j1.f3      -194.6723        80.5991        +INF             .          
+m3.j8.j1.f4      -194.6723        80.5991        +INF             .          
+m3.j8.j1.f5      -194.6723        80.5991        +INF             .          
+m3.j8.j2.f1      -195.9716      -115.3725        +INF             .          
+m3.j8.j2.f2      -195.9716        84.6275        +INF             .          
+m3.j8.j2.f3      -195.9716        84.6275        +INF             .          
+m3.j8.j2.f4      -195.9716        84.6275        +INF             .          
+m3.j8.j2.f5      -195.9716        84.6275        +INF             .          
+m3.j8.j3.f1      -195.9089      -111.2814        +INF             .          
+m3.j8.j3.f2      -195.9089        88.7186        +INF             .          
+m3.j8.j3.f3      -195.9089        88.7186        +INF             .          
+m3.j8.j3.f4      -195.9089        88.7186        +INF             .          
+m3.j8.j3.f5      -195.9089        88.7186        +INF             .          
+m3.j8.j4.f1      -195.7208      -183.5013        +INF             .          
+m3.j8.j4.f2      -195.7208        16.4987        +INF             .          
+m3.j8.j4.f3      -195.7208        16.4987        +INF             .          
+m3.j8.j4.f4      -195.7208        16.4987        +INF             .          
+m3.j8.j4.f5      -195.7208        16.4987        +INF             .          
+m3.j8.j5.f1      -196.1532      -104.8924        +INF             .          
+m3.j8.j5.f2      -196.1532        95.1076        +INF             .          
+m3.j8.j5.f3      -196.1532        95.1076        +INF             .          
+m3.j8.j5.f4      -196.1532        95.1076        +INF             .          
+m3.j8.j5.f5      -196.1532        95.1076        +INF             .          
+m3.j8.j6.f1      -194.9939      -187.7805        +INF             .          
+m3.j8.j6.f2      -194.9939        12.2195        +INF             .          
+m3.j8.j6.f3      -194.9939        12.2195        +INF             .          
+m3.j8.j6.f4      -194.9939        12.2195        +INF             .          
+m3.j8.j6.f5      -194.9939        12.2195        +INF             .          
+m3.j8.j7.f1      -192.7867      -192.7867        +INF            EPS         
+m3.j8.j7.f2      -192.7867         7.2133        +INF             .          
+m3.j8.j7.f3      -192.7867         7.2133        +INF             .          
+m3.j8.j7.f4      -192.7867         7.2133        +INF             .          
+m3.j8.j7.f5      -192.7867         7.2133        +INF             .          
+m4.j2.j1.f1      -194.5364      -104.6061        +INF             .          
+m4.j2.j1.f2      -194.5364        95.3939        +INF             .          
+m4.j2.j1.f3      -194.5364        95.3939        +INF             .          
+m4.j2.j1.f4      -194.5364        95.3939        +INF             .          
+m4.j2.j1.f5      -194.5364        95.3939        +INF             .          
+m4.j3.j1.f1      -194.5364      -109.9499        +INF             .          
+m4.j3.j1.f2      -194.5364        90.0501        +INF             .          
+m4.j3.j1.f3      -194.5364        90.0501        +INF             .          
+m4.j3.j1.f4      -194.5364        90.0501        +INF             .          
+m4.j3.j1.f5      -194.5364        90.0501        +INF             .          
+m4.j3.j2.f1      -195.3939      -105.3439        +INF             .          
+m4.j3.j2.f2      -195.3939        94.6561        +INF             .          
+m4.j3.j2.f3      -195.3939        94.6561        +INF             .          
+m4.j3.j2.f4      -195.3939        94.6561        +INF             .          
+m4.j3.j2.f5      -195.3939        94.6561        +INF             .          
+m4.j4.j1.f1      -194.5364      -134.1370        +INF             .          
+m4.j4.j1.f2      -194.5364        65.8630        +INF             .          
+m4.j4.j1.f3      -194.5364        65.8630        +INF             .          
+m4.j4.j1.f4      -194.5364        65.8630        +INF             .          
+m4.j4.j1.f5      -194.5364        65.8630        +INF             .          
+m4.j4.j2.f1      -195.3939      -129.5309        +INF             .          
+m4.j4.j2.f2      -195.3939        70.4691        +INF             .          
+m4.j4.j2.f3      -195.3939        70.4691        +INF             .          
+m4.j4.j2.f4      -195.3939        70.4691        +INF             .          
+m4.j4.j2.f5      -195.3939        70.4691        +INF             .          
+m4.j4.j3.f1      -194.6561      -124.1871        +INF             .          
+m4.j4.j3.f2      -194.6561        75.8129        +INF             .          
+m4.j4.j3.f3      -194.6561        75.8129        +INF             .          
+m4.j4.j3.f4      -194.6561        75.8129        +INF             .          
+m4.j4.j3.f5      -194.6561        75.8129        +INF             .          
+m4.j5.j1.f1      -194.5364      -115.6600        +INF             .          
+m4.j5.j1.f2      -194.5364        84.3400        +INF             .          
+m4.j5.j1.f3      -194.5364        84.3400        +INF             .          
+m4.j5.j1.f4      -194.5364        84.3400        +INF             .          
+m4.j5.j1.f5      -194.5364        84.3400        +INF             .          
+m4.j5.j2.f1      -195.3939      -111.0539        +INF             .          
+m4.j5.j2.f2      -195.3939        88.9461        +INF             .          
+m4.j5.j2.f3      -195.3939        88.9461        +INF             .          
+m4.j5.j2.f4      -195.3939        88.9461        +INF             .          
+m4.j5.j2.f5      -195.3939        88.9461        +INF             .          
+m4.j5.j3.f1      -194.6561      -105.7100        +INF             .          
+m4.j5.j3.f2      -194.6561        94.2900        +INF             .          
+m4.j5.j3.f3      -194.6561        94.2900        +INF             .          
+m4.j5.j3.f4      -194.6561        94.2900        +INF             .          
+m4.j5.j3.f5      -194.6561        94.2900        +INF             .          
+m4.j5.j4.f1      -196.2990      -181.5230        +INF             .          
+m4.j5.j4.f2      -196.2990        18.4770        +INF             .          
+m4.j5.j4.f3      -196.2990        18.4770        +INF             .          
+m4.j5.j4.f4      -196.2990        18.4770        +INF             .          
+m4.j5.j4.f5      -196.2990        18.4770        +INF             .          
+m4.j6.j1.f1      -194.5364      -130.1622        +INF             .          
+m4.j6.j1.f2      -194.5364        69.8378        +INF             .          
+m4.j6.j1.f3      -194.5364        69.8378        +INF             .          
+m4.j6.j1.f4      -194.5364        69.8378        +INF             .          
+m4.j6.j1.f5      -194.5364        69.8378        +INF             .          
+m4.j6.j2.f1      -195.3939      -125.5561        +INF             .          
+m4.j6.j2.f2      -195.3939        74.4439        +INF             .          
+m4.j6.j2.f3      -195.3939        74.4439        +INF             .          
+m4.j6.j2.f4      -195.3939        74.4439        +INF             .          
+m4.j6.j2.f5      -195.3939        74.4439        +INF             .          
+m4.j6.j3.f1      -194.6561      -120.2122        +INF             .          
+m4.j6.j3.f2      -194.6561        79.7878        +INF             .          
+m4.j6.j3.f3      -194.6561        79.7878        +INF             .          
+m4.j6.j3.f4      -194.6561        79.7878        +INF             .          
+m4.j6.j3.f5      -194.6561        79.7878        +INF             .          
+m4.j6.j4.f1      -196.2990      -196.0252        +INF             .          
+m4.j6.j4.f2      -196.2990         3.9748        +INF             .          
+m4.j6.j4.f3      -196.2990         3.9748        +INF             .          
+m4.j6.j4.f4      -196.2990         3.9748        +INF             .          
+m4.j6.j4.f5      -196.2990         3.9748        +INF             .          
+m4.j6.j5.f1      -194.2900      -114.5022        +INF             .          
+m4.j6.j5.f2      -194.2900        85.4978        +INF             .          
+m4.j6.j5.f3      -194.2900        85.4978        +INF             .          
+m4.j6.j5.f4      -194.2900        85.4978        +INF             .          
+m4.j6.j5.f5      -194.2900        85.4978        +INF             .          
+m4.j7.j1.f1      -194.5364      -126.1507        +INF             .          
+m4.j7.j1.f2      -194.5364        73.8493        +INF             .          
+m4.j7.j1.f3      -194.5364        73.8493        +INF             .          
+m4.j7.j1.f4      -194.5364        73.8493        +INF             .          
+m4.j7.j1.f5      -194.5364        73.8493        +INF             .          
+m4.j7.j2.f1      -195.3939      -121.5446        +INF             .          
+m4.j7.j2.f2      -195.3939        78.4554        +INF             .          
+m4.j7.j2.f3      -195.3939        78.4554        +INF             .          
+m4.j7.j2.f4      -195.3939        78.4554        +INF             .          
+m4.j7.j2.f5      -195.3939        78.4554        +INF             .          
+m4.j7.j3.f1      -194.6561      -116.2007        +INF             .          
+m4.j7.j3.f2      -194.6561        83.7993        +INF             .          
+m4.j7.j3.f3      -194.6561        83.7993        +INF             .          
+m4.j7.j3.f4      -194.6561        83.7993        +INF             .          
+m4.j7.j3.f5      -194.6561        83.7993        +INF             .          
+m4.j7.j4.f1      -196.2990      -192.0137        +INF             .          
+m4.j7.j4.f2      -196.2990         7.9863        +INF             .          
+m4.j7.j4.f3      -196.2990         7.9863        +INF             .          
+m4.j7.j4.f4      -196.2990         7.9863        +INF             .          
+m4.j7.j4.f5      -196.2990         7.9863        +INF             .          
+m4.j7.j5.f1      -194.2900      -110.4907        +INF             .          
+m4.j7.j5.f2      -194.2900        89.5093        +INF             .          
+m4.j7.j5.f3      -194.2900        89.5093        +INF             .          
+m4.j7.j5.f4      -194.2900        89.5093        +INF             .          
+m4.j7.j5.f5      -194.2900        89.5093        +INF             .          
+m4.j7.j6.f1      -195.9946      -195.9885        +INF             .          
+m4.j7.j6.f2      -195.9946         4.0115        +INF             .          
+m4.j7.j6.f3      -195.9946         4.0115        +INF             .          
+m4.j7.j6.f4      -195.9946         4.0115        +INF             .          
+m4.j7.j6.f5      -195.9946         4.0115        +INF             .          
+m4.j8.j1.f1      -194.5364      -121.1507        +INF             .          
+m4.j8.j1.f2      -194.5364        78.8493        +INF             .          
+m4.j8.j1.f3      -194.5364        78.8493        +INF             .          
+m4.j8.j1.f4      -194.5364        78.8493        +INF             .          
+m4.j8.j1.f5      -194.5364        78.8493        +INF             .          
+m4.j8.j2.f1      -195.3939      -116.5446        +INF             .          
+m4.j8.j2.f2      -195.3939        83.4554        +INF             .          
+m4.j8.j2.f3      -195.3939        83.4554        +INF             .          
+m4.j8.j2.f4      -195.3939        83.4554        +INF             .          
+m4.j8.j2.f5      -195.3939        83.4554        +INF             .          
+m4.j8.j3.f1      -194.6561      -111.2007        +INF             .          
+m4.j8.j3.f2      -194.6561        88.7993        +INF             .          
+m4.j8.j3.f3      -194.6561        88.7993        +INF             .          
+m4.j8.j3.f4      -194.6561        88.7993        +INF             .          
+m4.j8.j3.f5      -194.6561        88.7993        +INF             .          
+m4.j8.j4.f1      -196.2990      -187.0137        +INF             .          
+m4.j8.j4.f2      -196.2990        12.9863        +INF             .          
+m4.j8.j4.f3      -196.2990        12.9863        +INF             .          
+m4.j8.j4.f4      -196.2990        12.9863        +INF             .          
+m4.j8.j4.f5      -196.2990        12.9863        +INF             .          
+m4.j8.j5.f1      -194.2900      -105.4907        +INF             .          
+m4.j8.j5.f2      -194.2900        94.5093        +INF             .          
+m4.j8.j5.f3      -194.2900        94.5093        +INF             .          
+m4.j8.j5.f4      -194.2900        94.5093        +INF             .          
+m4.j8.j5.f5      -194.2900        94.5093        +INF             .          
+m4.j8.j6.f1      -195.9946      -190.9885        +INF             .          
+m4.j8.j6.f2      -195.9946         9.0115        +INF             .          
+m4.j8.j6.f3      -195.9946         9.0115        +INF             .          
+m4.j8.j6.f4      -195.9946         9.0115        +INF             .          
+m4.j8.j6.f5      -195.9946         9.0115        +INF             .          
+m4.j8.j7.f1      -195.0000      -195.0000        +INF            EPS         
+m4.j8.j7.f2      -195.0000         5.0000        +INF             .          
+m4.j8.j7.f3      -195.0000         5.0000        +INF             .          
+m4.j8.j7.f4      -195.0000         5.0000        +INF             .          
+m4.j8.j7.f5      -195.0000         5.0000        +INF             .          
+m5.j2.j1.f1      -196.8299      -105.9346        +INF             .          
+m5.j2.j1.f2      -196.8299        94.0654        +INF             .          
+m5.j2.j1.f3      -196.8299        94.0654        +INF             .          
+m5.j2.j1.f4      -196.8299        94.0654        +INF             .          
+m5.j2.j1.f5      -196.8299        94.0654        +INF             .          
+m5.j3.j1.f1      -196.8299      -110.2723        +INF             .          
+m5.j3.j1.f2      -196.8299        89.7277        +INF             .          
+m5.j3.j1.f3      -196.8299        89.7277        +INF             .          
+m5.j3.j1.f4      -196.8299        89.7277        +INF             .          
+m5.j3.j1.f5      -196.8299        89.7277        +INF             .          
+m5.j3.j2.f1      -194.0654      -104.3377        +INF             .          
+m5.j3.j2.f2      -194.0654        95.6623        +INF             .          
+m5.j3.j2.f3      -194.0654        95.6623        +INF             .          
+m5.j3.j2.f4      -194.0654        95.6623        +INF             .          
+m5.j3.j2.f5      -194.0654        95.6623        +INF             .          
+m5.j4.j1.f1      -196.8299      -132.8558        +INF             .          
+m5.j4.j1.f2      -196.8299        67.1442        +INF             .          
+m5.j4.j1.f3      -196.8299        67.1442        +INF             .          
+m5.j4.j1.f4      -196.8299        67.1442        +INF             .          
+m5.j4.j1.f5      -196.8299        67.1442        +INF             .          
+m5.j4.j2.f1      -194.0654      -126.9212        +INF             .          
+m5.j4.j2.f2      -194.0654        73.0788        +INF             .          
+m5.j4.j2.f3      -194.0654        73.0788        +INF             .          
+m5.j4.j2.f4      -194.0654        73.0788        +INF             .          
+m5.j4.j2.f5      -194.0654        73.0788        +INF             .          
+m5.j4.j3.f1      -195.6623      -122.5835        +INF             .          
+m5.j4.j3.f2      -195.6623        77.4165        +INF             .          
+m5.j4.j3.f3      -195.6623        77.4165        +INF             .          
+m5.j4.j3.f4      -195.6623        77.4165        +INF             .          
+m5.j4.j3.f5      -195.6623        77.4165        +INF             .          
+m5.j5.j1.f1      -196.8299      -116.2896        +INF             .          
+m5.j5.j1.f2      -196.8299        83.7104        +INF             .          
+m5.j5.j1.f3      -196.8299        83.7104        +INF             .          
+m5.j5.j1.f4      -196.8299        83.7104        +INF             .          
+m5.j5.j1.f5      -196.8299        83.7104        +INF             .          
+m5.j5.j2.f1      -194.0654      -110.3550        +INF             .          
+m5.j5.j2.f2      -194.0654        89.6450        +INF             .          
+m5.j5.j2.f3      -194.0654        89.6450        +INF             .          
+m5.j5.j2.f4      -194.0654        89.6450        +INF             .          
+m5.j5.j2.f5      -194.0654        89.6450        +INF             .          
+m5.j5.j3.f1      -195.6623      -106.0173        +INF             .          
+m5.j5.j3.f2      -195.6623        93.9827        +INF             .          
+m5.j5.j3.f3      -195.6623        93.9827        +INF             .          
+m5.j5.j3.f4      -195.6623        93.9827        +INF             .          
+m5.j5.j3.f5      -195.6623        93.9827        +INF             .          
+m5.j5.j4.f1      -196.3755      -183.4338        +INF             .          
+m5.j5.j4.f2      -196.3755        16.5662        +INF             .          
+m5.j5.j4.f3      -196.3755        16.5662        +INF             .          
+m5.j5.j4.f4      -196.3755        16.5662        +INF             .          
+m5.j5.j4.f5      -196.3755        16.5662        +INF             .          
+m5.j6.j1.f1      -196.8299      -129.2312        +INF             .          
+m5.j6.j1.f2      -196.8299        70.7688        +INF             .          
+m5.j6.j1.f3      -196.8299        70.7688        +INF             .          
+m5.j6.j1.f4      -196.8299        70.7688        +INF             .          
+m5.j6.j1.f5      -196.8299        70.7688        +INF             .          
+m5.j6.j2.f1      -194.0654      -123.2967        +INF             .          
+m5.j6.j2.f2      -194.0654        76.7033        +INF             .          
+m5.j6.j2.f3      -194.0654        76.7033        +INF             .          
+m5.j6.j2.f4      -194.0654        76.7033        +INF             .          
+m5.j6.j2.f5      -194.0654        76.7033        +INF             .          
+m5.j6.j3.f1      -195.6623      -118.9590        +INF             .          
+m5.j6.j3.f2      -195.6623        81.0410        +INF             .          
+m5.j6.j3.f3      -195.6623        81.0410        +INF             .          
+m5.j6.j3.f4      -195.6623        81.0410        +INF             .          
+m5.j6.j3.f5      -195.6623        81.0410        +INF             .          
+m5.j6.j4.f1      -196.3755      -196.3755        +INF            1.0000      
+m5.j6.j4.f2      -196.3755         3.6245        +INF             .          
+m5.j6.j4.f3      -196.3755         3.6245        +INF             .          
+m5.j6.j4.f4      -196.3755         3.6245        +INF             .          
+m5.j6.j4.f5      -196.3755         3.6245        +INF             .          
+m5.j6.j5.f1      -193.9827      -112.9417        +INF             .          
+m5.j6.j5.f2      -193.9827        87.0583        +INF             .          
+m5.j6.j5.f3      -193.9827        87.0583        +INF             .          
+m5.j6.j5.f4      -193.9827        87.0583        +INF             .          
+m5.j6.j5.f5      -193.9827        87.0583        +INF             .          
+m5.j7.j1.f1      -196.8299      -125.1382        +INF             .          
+m5.j7.j1.f2      -196.8299        74.8618        +INF             .          
+m5.j7.j1.f3      -196.8299        74.8618        +INF             .          
+m5.j7.j1.f4      -196.8299        74.8618        +INF             .          
+m5.j7.j1.f5      -196.8299        74.8618        +INF             .          
+m5.j7.j2.f1      -194.0654      -119.2036        +INF             .          
+m5.j7.j2.f2      -194.0654        80.7964        +INF             .          
+m5.j7.j2.f3      -194.0654        80.7964        +INF             .          
+m5.j7.j2.f4      -194.0654        80.7964        +INF             .          
+m5.j7.j2.f5      -194.0654        80.7964        +INF             .          
+m5.j7.j3.f1      -195.6623      -114.8659        +INF             .          
+m5.j7.j3.f2      -195.6623        85.1341        +INF             .          
+m5.j7.j3.f3      -195.6623        85.1341        +INF             .          
+m5.j7.j3.f4      -195.6623        85.1341        +INF             .          
+m5.j7.j3.f5      -195.6623        85.1341        +INF             .          
+m5.j7.j4.f1      -196.3755      -192.2824        +INF             .          
+m5.j7.j4.f2      -196.3755         7.7176        +INF             .          
+m5.j7.j4.f3      -196.3755         7.7176        +INF             .          
+m5.j7.j4.f4      -196.3755         7.7176        +INF             .          
+m5.j7.j4.f5      -196.3755         7.7176        +INF             .          
+m5.j7.j5.f1      -193.9827      -108.8486        +INF             .          
+m5.j7.j5.f2      -193.9827        91.1514        +INF             .          
+m5.j7.j5.f3      -193.9827        91.1514        +INF             .          
+m5.j7.j5.f4      -193.9827        91.1514        +INF             .          
+m5.j7.j5.f5      -193.9827        91.1514        +INF             .          
+m5.j7.j6.f1      -195.9069      -195.9069        +INF            1.0000      
+m5.j7.j6.f2      -195.9069         4.0931        +INF             .          
+m5.j7.j6.f3      -195.9069         4.0931        +INF             .          
+m5.j7.j6.f4      -195.9069         4.0931        +INF             .          
+m5.j7.j6.f5      -195.9069         4.0931        +INF             .          
+m5.j8.j1.f1      -196.8299      -120.7630        +INF             .          
+m5.j8.j1.f2      -196.8299        79.2370        +INF             .          
+m5.j8.j1.f3      -196.8299        79.2370        +INF             .          
+m5.j8.j1.f4      -196.8299        79.2370        +INF             .          
+m5.j8.j1.f5      -196.8299        79.2370        +INF             .          
+m5.j8.j2.f1      -194.0654      -114.8284        +INF             .          
+m5.j8.j2.f2      -194.0654        85.1716        +INF             .          
+m5.j8.j2.f3      -194.0654        85.1716        +INF             .          
+m5.j8.j2.f4      -194.0654        85.1716        +INF             .          
+m5.j8.j2.f5      -194.0654        85.1716        +INF             .          
+m5.j8.j3.f1      -195.6623      -110.4907        +INF             .          
+m5.j8.j3.f2      -195.6623        89.5093        +INF             .          
+m5.j8.j3.f3      -195.6623        89.5093        +INF             .          
+m5.j8.j3.f4      -195.6623        89.5093        +INF             .          
+m5.j8.j3.f5      -195.6623        89.5093        +INF             .          
+m5.j8.j4.f1      -196.3755      -187.9072        +INF             .          
+m5.j8.j4.f2      -196.3755        12.0928        +INF             .          
+m5.j8.j4.f3      -196.3755        12.0928        +INF             .          
+m5.j8.j4.f4      -196.3755        12.0928        +INF             .          
+m5.j8.j4.f5      -196.3755        12.0928        +INF             .          
+m5.j8.j5.f1      -193.9827      -104.4734        +INF             .          
+m5.j8.j5.f2      -193.9827        95.5266        +INF             .          
+m5.j8.j5.f3      -193.9827        95.5266        +INF             .          
+m5.j8.j5.f4      -193.9827        95.5266        +INF             .          
+m5.j8.j5.f5      -193.9827        95.5266        +INF             .          
+m5.j8.j6.f1      -195.9069      -191.5317        +INF             .          
+m5.j8.j6.f2      -195.9069         8.4683        +INF             .          
+m5.j8.j6.f3      -195.9069         8.4683        +INF             .          
+m5.j8.j6.f4      -195.9069         8.4683        +INF             .          
+m5.j8.j6.f5      -195.9069         8.4683        +INF             .          
+m5.j8.j7.f1      -195.6248      -195.6248        +INF            EPS         
+m5.j8.j7.f2      -195.6248         4.3752        +INF             .          
+m5.j8.j7.f3      -195.6248         4.3752        +INF             .          
+m5.j8.j7.f4      -195.6248         4.3752        +INF             .          
+m5.j8.j7.f5      -195.6248         4.3752        +INF             .          
+
+---- EQU pred_2  state that a job can be processed on a machine only after its immediate predecessor has been completed.
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+m1.j2.j1.f1      -295.7316      -295.7316        +INF            1.0000      
+m1.j2.j1.f2      -295.7316       -95.7316        +INF             .          
+m1.j2.j1.f3      -295.7316       -95.7316        +INF             .          
+m1.j2.j1.f4      -295.7316       -95.7316        +INF             .          
+m1.j2.j1.f5      -295.7316       -95.7316        +INF             .          
+m1.j3.j1.f1      -295.7593      -291.4909        +INF             .          
+m1.j3.j1.f2      -295.7593       -91.4909        +INF             .          
+m1.j3.j1.f3      -295.7593       -91.4909        +INF             .          
+m1.j3.j1.f4      -295.7593       -91.4909        +INF             .          
+m1.j3.j1.f5      -295.7593       -91.4909        +INF             .          
+m1.j3.j2.f1      -295.7593      -295.7593        +INF            1.0000      
+m1.j3.j2.f2      -295.7593       -95.7593        +INF             .          
+m1.j3.j2.f3      -295.7593       -95.7593        +INF             .          
+m1.j3.j2.f4      -295.7593       -95.7593        +INF             .          
+m1.j3.j2.f5      -295.7593       -95.7593        +INF             .          
+m1.j4.j1.f1      -295.4861      -266.9369        +INF             .          
+m1.j4.j1.f2      -295.4861       -66.9369        +INF             .          
+m1.j4.j1.f3      -295.4861       -66.9369        +INF             .          
+m1.j4.j1.f4      -295.4861       -66.9369        +INF             .          
+m1.j4.j1.f5      -295.4861       -66.9369        +INF             .          
+m1.j4.j2.f1      -295.4861      -271.2053        +INF             .          
+m1.j4.j2.f2      -295.4861       -71.2053        +INF             .          
+m1.j4.j2.f3      -295.4861       -71.2053        +INF             .          
+m1.j4.j2.f4      -295.4861       -71.2053        +INF             .          
+m1.j4.j2.f5      -295.4861       -71.2053        +INF             .          
+m1.j4.j3.f1      -295.4861      -275.4460        +INF             .          
+m1.j4.j3.f2      -295.4861       -75.4460        +INF             .          
+m1.j4.j3.f3      -295.4861       -75.4460        +INF             .          
+m1.j4.j3.f4      -295.4861       -75.4460        +INF             .          
+m1.j4.j3.f5      -295.4861       -75.4460        +INF             .          
+m1.j5.j1.f1      -294.6803      -286.1712        +INF             .          
+m1.j5.j1.f2      -294.6803       -86.1712        +INF             .          
+m1.j5.j1.f3      -294.6803       -86.1712        +INF             .          
+m1.j5.j1.f4      -294.6803       -86.1712        +INF             .          
+m1.j5.j1.f5      -294.6803       -86.1712        +INF             .          
+m1.j5.j2.f1      -294.6803      -290.4396        +INF             .          
+m1.j5.j2.f2      -294.6803       -90.4396        +INF             .          
+m1.j5.j2.f3      -294.6803       -90.4396        +INF             .          
+m1.j5.j2.f4      -294.6803       -90.4396        +INF             .          
+m1.j5.j2.f5      -294.6803       -90.4396        +INF             .          
+m1.j5.j3.f1      -294.6803      -294.6803        +INF            1.0000      
+m1.j5.j3.f2      -294.6803       -94.6803        +INF             .          
+m1.j5.j3.f3      -294.6803       -94.6803        +INF             .          
+m1.j5.j3.f4      -294.6803       -94.6803        +INF             .          
+m1.j5.j3.f5      -294.6803       -94.6803        +INF             .          
+m1.j5.j4.f1      -294.6803      -219.2343        +INF             .          
+m1.j5.j4.f2      -294.6803       -19.2343        +INF             .          
+m1.j5.j4.f3      -294.6803       -19.2343        +INF             .          
+m1.j5.j4.f4      -294.6803       -19.2343        +INF             .          
+m1.j5.j4.f5      -294.6803       -19.2343        +INF             .          
+m1.j6.j1.f1      -295.7241      -271.4507        +INF             .          
+m1.j6.j1.f2      -295.7241       -71.4507        +INF             .          
+m1.j6.j1.f3      -295.7241       -71.4507        +INF             .          
+m1.j6.j1.f4      -295.7241       -71.4507        +INF             .          
+m1.j6.j1.f5      -295.7241       -71.4507        +INF             .          
+m1.j6.j2.f1      -295.7241      -275.7191        +INF             .          
+m1.j6.j2.f2      -295.7241       -75.7191        +INF             .          
+m1.j6.j2.f3      -295.7241       -75.7191        +INF             .          
+m1.j6.j2.f4      -295.7241       -75.7191        +INF             .          
+m1.j6.j2.f5      -295.7241       -75.7191        +INF             .          
+m1.j6.j3.f1      -295.7241      -279.9598        +INF             .          
+m1.j6.j3.f2      -295.7241       -79.9598        +INF             .          
+m1.j6.j3.f3      -295.7241       -79.9598        +INF             .          
+m1.j6.j3.f4      -295.7241       -79.9598        +INF             .          
+m1.j6.j3.f5      -295.7241       -79.9598        +INF             .          
+m1.j6.j4.f1      -295.7241      -204.5139        +INF             .          
+m1.j6.j4.f2      -295.7241        -4.5139        +INF             .          
+m1.j6.j4.f3      -295.7241        -4.5139        +INF             .          
+m1.j6.j4.f4      -295.7241        -4.5139        +INF             .          
+m1.j6.j4.f5      -295.7241        -4.5139        +INF             .          
+m1.j6.j5.f1      -295.7241      -285.2795        +INF             .          
+m1.j6.j5.f2      -295.7241       -85.2795        +INF             .          
+m1.j6.j5.f3      -295.7241       -85.2795        +INF             .          
+m1.j6.j5.f4      -295.7241       -85.2795        +INF             .          
+m1.j6.j5.f5      -295.7241       -85.2795        +INF             .          
+m1.j7.j1.f1      -294.3373      -275.7267        +INF             .          
+m1.j7.j1.f2      -294.3373       -75.7267        +INF             .          
+m1.j7.j1.f3      -294.3373       -75.7267        +INF             .          
+m1.j7.j1.f4      -294.3373       -75.7267        +INF             .          
+m1.j7.j1.f5      -294.3373       -75.7267        +INF             .          
+m1.j7.j2.f1      -294.3373      -279.9951        +INF             .          
+m1.j7.j2.f2      -294.3373       -79.9951        +INF             .          
+m1.j7.j2.f3      -294.3373       -79.9951        +INF             .          
+m1.j7.j2.f4      -294.3373       -79.9951        +INF             .          
+m1.j7.j2.f5      -294.3373       -79.9951        +INF             .          
+m1.j7.j3.f1      -294.3373      -284.2358        +INF             .          
+m1.j7.j3.f2      -294.3373       -84.2358        +INF             .          
+m1.j7.j3.f3      -294.3373       -84.2358        +INF             .          
+m1.j7.j3.f4      -294.3373       -84.2358        +INF             .          
+m1.j7.j3.f5      -294.3373       -84.2358        +INF             .          
+m1.j7.j4.f1      -294.3373      -208.7898        +INF             .          
+m1.j7.j4.f2      -294.3373        -8.7898        +INF             .          
+m1.j7.j4.f3      -294.3373        -8.7898        +INF             .          
+m1.j7.j4.f4      -294.3373        -8.7898        +INF             .          
+m1.j7.j4.f5      -294.3373        -8.7898        +INF             .          
+m1.j7.j5.f1      -294.3373      -289.5554        +INF             .          
+m1.j7.j5.f2      -294.3373       -89.5554        +INF             .          
+m1.j7.j5.f3      -294.3373       -89.5554        +INF             .          
+m1.j7.j5.f4      -294.3373       -89.5554        +INF             .          
+m1.j7.j5.f5      -294.3373       -89.5554        +INF             .          
+m1.j7.j6.f1      -294.3373      -204.2759        +INF             .          
+m1.j7.j6.f2      -294.3373        -4.2759        +INF             .          
+m1.j7.j6.f3      -294.3373        -4.2759        +INF             .          
+m1.j7.j6.f4      -294.3373        -4.2759        +INF             .          
+m1.j7.j6.f5      -294.3373        -4.2759        +INF             .          
+m1.j8.j1.f1      -295.2182      -281.3894        +INF             .          
+m1.j8.j1.f2      -295.2182       -81.3894        +INF             .          
+m1.j8.j1.f3      -295.2182       -81.3894        +INF             .          
+m1.j8.j1.f4      -295.2182       -81.3894        +INF             .          
+m1.j8.j1.f5      -295.2182       -81.3894        +INF             .          
+m1.j8.j2.f1      -295.2182      -285.6578        +INF             .          
+m1.j8.j2.f2      -295.2182       -85.6578        +INF             .          
+m1.j8.j2.f3      -295.2182       -85.6578        +INF             .          
+m1.j8.j2.f4      -295.2182       -85.6578        +INF             .          
+m1.j8.j2.f5      -295.2182       -85.6578        +INF             .          
+m1.j8.j3.f1      -295.2182      -289.8985        +INF             .          
+m1.j8.j3.f2      -295.2182       -89.8985        +INF             .          
+m1.j8.j3.f3      -295.2182       -89.8985        +INF             .          
+m1.j8.j3.f4      -295.2182       -89.8985        +INF             .          
+m1.j8.j3.f5      -295.2182       -89.8985        +INF             .          
+m1.j8.j4.f1      -295.2182      -214.4525        +INF             .          
+m1.j8.j4.f2      -295.2182       -14.4525        +INF             .          
+m1.j8.j4.f3      -295.2182       -14.4525        +INF             .          
+m1.j8.j4.f4      -295.2182       -14.4525        +INF             .          
+m1.j8.j4.f5      -295.2182       -14.4525        +INF             .          
+m1.j8.j5.f1      -295.2182      -295.2182        +INF            1.0000      
+m1.j8.j5.f2      -295.2182       -95.2182        +INF             .          
+m1.j8.j5.f3      -295.2182       -95.2182        +INF             .          
+m1.j8.j5.f4      -295.2182       -95.2182        +INF             .          
+m1.j8.j5.f5      -295.2182       -95.2182        +INF             .          
+m1.j8.j6.f1      -295.2182      -209.9387        +INF             .          
+m1.j8.j6.f2      -295.2182        -9.9387        +INF             .          
+m1.j8.j6.f3      -295.2182        -9.9387        +INF             .          
+m1.j8.j6.f4      -295.2182        -9.9387        +INF             .          
+m1.j8.j6.f5      -295.2182        -9.9387        +INF             .          
+m1.j8.j7.f1      -295.2182      -205.6627        +INF             .          
+m1.j8.j7.f2      -295.2182        -5.6627        +INF             .          
+m1.j8.j7.f3      -295.2182        -5.6627        +INF             .          
+m1.j8.j7.f4      -295.2182        -5.6627        +INF             .          
+m1.j8.j7.f5      -295.2182        -5.6627        +INF             .          
+m2.j2.j1.f1      -298.0000      -297.0677        +INF             .          
+m2.j2.j1.f2      -298.0000       -97.0677        +INF             .          
+m2.j2.j1.f3      -298.0000       -97.0677        +INF             .          
+m2.j2.j1.f4      -298.0000       -97.0677        +INF             .          
+m2.j2.j1.f5      -298.0000       -97.0677        +INF             .          
+m2.j3.j1.f1      -294.9996      -292.0673        +INF             .          
+m2.j3.j1.f2      -294.9996       -92.0673        +INF             .          
+m2.j3.j1.f3      -294.9996       -92.0673        +INF             .          
+m2.j3.j1.f4      -294.9996       -92.0673        +INF             .          
+m2.j3.j1.f5      -294.9996       -92.0673        +INF             .          
+m2.j3.j2.f1      -294.9996      -294.9996        +INF            EPS         
+m2.j3.j2.f2      -294.9996       -94.9996        +INF             .          
+m2.j3.j2.f3      -294.9996       -94.9996        +INF             .          
+m2.j3.j2.f4      -294.9996       -94.9996        +INF             .          
+m2.j3.j2.f5      -294.9996       -94.9996        +INF             .          
+m2.j4.j1.f1      -293.1165      -264.3873        +INF             .          
+m2.j4.j1.f2      -293.1165       -64.3873        +INF             .          
+m2.j4.j1.f3      -293.1165       -64.3873        +INF             .          
+m2.j4.j1.f4      -293.1165       -64.3873        +INF             .          
+m2.j4.j1.f5      -293.1165       -64.3873        +INF             .          
+m2.j4.j2.f1      -293.1165      -267.3196        +INF             .          
+m2.j4.j2.f2      -293.1165       -67.3196        +INF             .          
+m2.j4.j2.f3      -293.1165       -67.3196        +INF             .          
+m2.j4.j2.f4      -293.1165       -67.3196        +INF             .          
+m2.j4.j2.f5      -293.1165       -67.3196        +INF             .          
+m2.j4.j3.f1      -293.1165      -272.3200        +INF             .          
+m2.j4.j3.f2      -293.1165       -72.3200        +INF             .          
+m2.j4.j3.f3      -293.1165       -72.3200        +INF             .          
+m2.j4.j3.f4      -293.1165       -72.3200        +INF             .          
+m2.j4.j3.f5      -293.1165       -72.3200        +INF             .          
+m2.j5.j1.f1      -293.8130      -285.8803        +INF             .          
+m2.j5.j1.f2      -293.8130       -85.8803        +INF             .          
+m2.j5.j1.f3      -293.8130       -85.8803        +INF             .          
+m2.j5.j1.f4      -293.8130       -85.8803        +INF             .          
+m2.j5.j1.f5      -293.8130       -85.8803        +INF             .          
+m2.j5.j2.f1      -293.8130      -288.8126        +INF             .          
+m2.j5.j2.f2      -293.8130       -88.8126        +INF             .          
+m2.j5.j2.f3      -293.8130       -88.8126        +INF             .          
+m2.j5.j2.f4      -293.8130       -88.8126        +INF             .          
+m2.j5.j2.f5      -293.8130       -88.8126        +INF             .          
+m2.j5.j3.f1      -293.8130      -293.8130        +INF            EPS         
+m2.j5.j3.f2      -293.8130       -93.8130        +INF             .          
+m2.j5.j3.f3      -293.8130       -93.8130        +INF             .          
+m2.j5.j3.f4      -293.8130       -93.8130        +INF             .          
+m2.j5.j3.f5      -293.8130       -93.8130        +INF             .          
+m2.j5.j4.f1      -293.8130      -221.4930        +INF             .          
+m2.j5.j4.f2      -293.8130       -21.4930        +INF             .          
+m2.j5.j4.f3      -293.8130       -21.4930        +INF             .          
+m2.j5.j4.f4      -293.8130       -21.4930        +INF             .          
+m2.j5.j4.f5      -293.8130       -21.4930        +INF             .          
+m2.j6.j1.f1      -295.9994      -271.2708        +INF             .          
+m2.j6.j1.f2      -295.9994       -71.2708        +INF             .          
+m2.j6.j1.f3      -295.9994       -71.2708        +INF             .          
+m2.j6.j1.f4      -295.9994       -71.2708        +INF             .          
+m2.j6.j1.f5      -295.9994       -71.2708        +INF             .          
+m2.j6.j2.f1      -295.9994      -274.2031        +INF             .          
+m2.j6.j2.f2      -295.9994       -74.2031        +INF             .          
+m2.j6.j2.f3      -295.9994       -74.2031        +INF             .          
+m2.j6.j2.f4      -295.9994       -74.2031        +INF             .          
+m2.j6.j2.f5      -295.9994       -74.2031        +INF             .          
+m2.j6.j3.f1      -295.9994      -279.2035        +INF             .          
+m2.j6.j3.f2      -295.9994       -79.2035        +INF             .          
+m2.j6.j3.f3      -295.9994       -79.2035        +INF             .          
+m2.j6.j3.f4      -295.9994       -79.2035        +INF             .          
+m2.j6.j3.f5      -295.9994       -79.2035        +INF             .          
+m2.j6.j4.f1      -295.9994      -206.8835        +INF             .          
+m2.j6.j4.f2      -295.9994        -6.8835        +INF             .          
+m2.j6.j4.f3      -295.9994        -6.8835        +INF             .          
+m2.j6.j4.f4      -295.9994        -6.8835        +INF             .          
+m2.j6.j4.f5      -295.9994        -6.8835        +INF             .          
+m2.j6.j5.f1      -295.9994      -285.3905        +INF             .          
+m2.j6.j5.f2      -295.9994       -85.3905        +INF             .          
+m2.j6.j5.f3      -295.9994       -85.3905        +INF             .          
+m2.j6.j5.f4      -295.9994       -85.3905        +INF             .          
+m2.j6.j5.f5      -295.9994       -85.3905        +INF             .          
+m2.j7.j1.f1      -293.4290      -275.2715        +INF             .          
+m2.j7.j1.f2      -293.4290       -75.2715        +INF             .          
+m2.j7.j1.f3      -293.4290       -75.2715        +INF             .          
+m2.j7.j1.f4      -293.4290       -75.2715        +INF             .          
+m2.j7.j1.f5      -293.4290       -75.2715        +INF             .          
+m2.j7.j2.f1      -293.4290      -278.2037        +INF             .          
+m2.j7.j2.f2      -293.4290       -78.2037        +INF             .          
+m2.j7.j2.f3      -293.4290       -78.2037        +INF             .          
+m2.j7.j2.f4      -293.4290       -78.2037        +INF             .          
+m2.j7.j2.f5      -293.4290       -78.2037        +INF             .          
+m2.j7.j3.f1      -293.4290      -283.2041        +INF             .          
+m2.j7.j3.f2      -293.4290       -83.2041        +INF             .          
+m2.j7.j3.f3      -293.4290       -83.2041        +INF             .          
+m2.j7.j3.f4      -293.4290       -83.2041        +INF             .          
+m2.j7.j3.f5      -293.4290       -83.2041        +INF             .          
+m2.j7.j4.f1      -293.4290      -210.8841        +INF             .          
+m2.j7.j4.f2      -293.4290       -10.8841        +INF             .          
+m2.j7.j4.f3      -293.4290       -10.8841        +INF             .          
+m2.j7.j4.f4      -293.4290       -10.8841        +INF             .          
+m2.j7.j4.f5      -293.4290       -10.8841        +INF             .          
+m2.j7.j5.f1      -293.4290      -289.3911        +INF             .          
+m2.j7.j5.f2      -293.4290       -89.3911        +INF             .          
+m2.j7.j5.f3      -293.4290       -89.3911        +INF             .          
+m2.j7.j5.f4      -293.4290       -89.3911        +INF             .          
+m2.j7.j5.f5      -293.4290       -89.3911        +INF             .          
+m2.j7.j6.f1      -293.4290      -204.0006        +INF             .          
+m2.j7.j6.f2      -293.4290        -4.0006        +INF             .          
+m2.j7.j6.f3      -293.4290        -4.0006        +INF             .          
+m2.j7.j6.f4      -293.4290        -4.0006        +INF             .          
+m2.j7.j6.f5      -293.4290        -4.0006        +INF             .          
+m2.j8.j1.f1      -295.9621      -281.8424        +INF             .          
+m2.j8.j1.f2      -295.9621       -81.8424        +INF             .          
+m2.j8.j1.f3      -295.9621       -81.8424        +INF             .          
+m2.j8.j1.f4      -295.9621       -81.8424        +INF             .          
+m2.j8.j1.f5      -295.9621       -81.8424        +INF             .          
+m2.j8.j2.f1      -295.9621      -284.7747        +INF             .          
+m2.j8.j2.f2      -295.9621       -84.7747        +INF             .          
+m2.j8.j2.f3      -295.9621       -84.7747        +INF             .          
+m2.j8.j2.f4      -295.9621       -84.7747        +INF             .          
+m2.j8.j2.f5      -295.9621       -84.7747        +INF             .          
+m2.j8.j3.f1      -295.9621      -289.7751        +INF             .          
+m2.j8.j3.f2      -295.9621       -89.7751        +INF             .          
+m2.j8.j3.f3      -295.9621       -89.7751        +INF             .          
+m2.j8.j3.f4      -295.9621       -89.7751        +INF             .          
+m2.j8.j3.f5      -295.9621       -89.7751        +INF             .          
+m2.j8.j4.f1      -295.9621      -217.4551        +INF             .          
+m2.j8.j4.f2      -295.9621       -17.4551        +INF             .          
+m2.j8.j4.f3      -295.9621       -17.4551        +INF             .          
+m2.j8.j4.f4      -295.9621       -17.4551        +INF             .          
+m2.j8.j4.f5      -295.9621       -17.4551        +INF             .          
+m2.j8.j5.f1      -295.9621      -295.9621        +INF            EPS         
+m2.j8.j5.f2      -295.9621       -95.9621        +INF             .          
+m2.j8.j5.f3      -295.9621       -95.9621        +INF             .          
+m2.j8.j5.f4      -295.9621       -95.9621        +INF             .          
+m2.j8.j5.f5      -295.9621       -95.9621        +INF             .          
+m2.j8.j6.f1      -295.9621      -210.5716        +INF             .          
+m2.j8.j6.f2      -295.9621       -10.5716        +INF             .          
+m2.j8.j6.f3      -295.9621       -10.5716        +INF             .          
+m2.j8.j6.f4      -295.9621       -10.5716        +INF             .          
+m2.j8.j6.f5      -295.9621       -10.5716        +INF             .          
+m2.j8.j7.f1      -295.9621      -206.5710        +INF             .          
+m2.j8.j7.f2      -295.9621        -6.5710        +INF             .          
+m2.j8.j7.f3      -295.9621        -6.5710        +INF             .          
+m2.j8.j7.f4      -295.9621        -6.5710        +INF             .          
+m2.j8.j7.f5      -295.9621        -6.5710        +INF             .          
+m3.j2.j1.f1      -295.9716      -295.9716        +INF            EPS         
+m3.j2.j1.f2      -295.9716       -95.9716        +INF             .          
+m3.j2.j1.f3      -295.9716       -95.9716        +INF             .          
+m3.j2.j1.f4      -295.9716       -95.9716        +INF             .          
+m3.j2.j1.f5      -295.9716       -95.9716        +INF             .          
+m3.j3.j1.f1      -295.9089      -291.8805        +INF             .          
+m3.j3.j1.f2      -295.9089       -91.8805        +INF             .          
+m3.j3.j1.f3      -295.9089       -91.8805        +INF             .          
+m3.j3.j1.f4      -295.9089       -91.8805        +INF             .          
+m3.j3.j1.f5      -295.9089       -91.8805        +INF             .          
+m3.j3.j2.f1      -295.9089      -295.9089        +INF            EPS         
+m3.j3.j2.f2      -295.9089       -95.9089        +INF             .          
+m3.j3.j2.f3      -295.9089       -95.9089        +INF             .          
+m3.j3.j2.f4      -295.9089       -95.9089        +INF             .          
+m3.j3.j2.f5      -295.9089       -95.9089        +INF             .          
+m3.j4.j1.f1      -295.7208      -264.1004        +INF             .          
+m3.j4.j1.f2      -295.7208       -64.1004        +INF             .          
+m3.j4.j1.f3      -295.7208       -64.1004        +INF             .          
+m3.j4.j1.f4      -295.7208       -64.1004        +INF             .          
+m3.j4.j1.f5      -295.7208       -64.1004        +INF             .          
+m3.j4.j2.f1      -295.7208      -268.1288        +INF             .          
+m3.j4.j2.f2      -295.7208       -68.1288        +INF             .          
+m3.j4.j2.f3      -295.7208       -68.1288        +INF             .          
+m3.j4.j2.f4      -295.7208       -68.1288        +INF             .          
+m3.j4.j2.f5      -295.7208       -68.1288        +INF             .          
+m3.j4.j3.f1      -295.7208      -272.2199        +INF             .          
+m3.j4.j3.f2      -295.7208       -72.2199        +INF             .          
+m3.j4.j3.f3      -295.7208       -72.2199        +INF             .          
+m3.j4.j3.f4      -295.7208       -72.2199        +INF             .          
+m3.j4.j3.f5      -295.7208       -72.2199        +INF             .          
+m3.j5.j1.f1      -296.1532      -285.4915        +INF             .          
+m3.j5.j1.f2      -296.1532       -85.4915        +INF             .          
+m3.j5.j1.f3      -296.1532       -85.4915        +INF             .          
+m3.j5.j1.f4      -296.1532       -85.4915        +INF             .          
+m3.j5.j1.f5      -296.1532       -85.4915        +INF             .          
+m3.j5.j2.f1      -296.1532      -289.5199        +INF             .          
+m3.j5.j2.f2      -296.1532       -89.5199        +INF             .          
+m3.j5.j2.f3      -296.1532       -89.5199        +INF             .          
+m3.j5.j2.f4      -296.1532       -89.5199        +INF             .          
+m3.j5.j2.f5      -296.1532       -89.5199        +INF             .          
+m3.j5.j3.f1      -296.1532      -293.6110        +INF             .          
+m3.j5.j3.f2      -296.1532       -93.6110        +INF             .          
+m3.j5.j3.f3      -296.1532       -93.6110        +INF             .          
+m3.j5.j3.f4      -296.1532       -93.6110        +INF             .          
+m3.j5.j3.f5      -296.1532       -93.6110        +INF             .          
+m3.j5.j4.f1      -296.1532      -221.3911        +INF             .          
+m3.j5.j4.f2      -296.1532       -21.3911        +INF             .          
+m3.j5.j4.f3      -296.1532       -21.3911        +INF             .          
+m3.j5.j4.f4      -296.1532       -21.3911        +INF             .          
+m3.j5.j4.f5      -296.1532       -21.3911        +INF             .          
+m3.j6.j1.f1      -294.9939      -268.3797        +INF             .          
+m3.j6.j1.f2      -294.9939       -68.3797        +INF             .          
+m3.j6.j1.f3      -294.9939       -68.3797        +INF             .          
+m3.j6.j1.f4      -294.9939       -68.3797        +INF             .          
+m3.j6.j1.f5      -294.9939       -68.3797        +INF             .          
+m3.j6.j2.f1      -294.9939      -272.4081        +INF             .          
+m3.j6.j2.f2      -294.9939       -72.4081        +INF             .          
+m3.j6.j2.f3      -294.9939       -72.4081        +INF             .          
+m3.j6.j2.f4      -294.9939       -72.4081        +INF             .          
+m3.j6.j2.f5      -294.9939       -72.4081        +INF             .          
+m3.j6.j3.f1      -294.9939      -276.4992        +INF             .          
+m3.j6.j3.f2      -294.9939       -76.4992        +INF             .          
+m3.j6.j3.f3      -294.9939       -76.4992        +INF             .          
+m3.j6.j3.f4      -294.9939       -76.4992        +INF             .          
+m3.j6.j3.f5      -294.9939       -76.4992        +INF             .          
+m3.j6.j4.f1      -294.9939      -204.2792        +INF             .          
+m3.j6.j4.f2      -294.9939        -4.2792        +INF             .          
+m3.j6.j4.f3      -294.9939        -4.2792        +INF             .          
+m3.j6.j4.f4      -294.9939        -4.2792        +INF             .          
+m3.j6.j4.f5      -294.9939        -4.2792        +INF             .          
+m3.j6.j5.f1      -294.9939      -282.8881        +INF             .          
+m3.j6.j5.f2      -294.9939       -82.8881        +INF             .          
+m3.j6.j5.f3      -294.9939       -82.8881        +INF             .          
+m3.j6.j5.f4      -294.9939       -82.8881        +INF             .          
+m3.j6.j5.f5      -294.9939       -82.8881        +INF             .          
+m3.j7.j1.f1      -292.7867      -273.3858        +INF             .          
+m3.j7.j1.f2      -292.7867       -73.3858        +INF             .          
+m3.j7.j1.f3      -292.7867       -73.3858        +INF             .          
+m3.j7.j1.f4      -292.7867       -73.3858        +INF             .          
+m3.j7.j1.f5      -292.7867       -73.3858        +INF             .          
+m3.j7.j2.f1      -292.7867      -277.4142        +INF             .          
+m3.j7.j2.f2      -292.7867       -77.4142        +INF             .          
+m3.j7.j2.f3      -292.7867       -77.4142        +INF             .          
+m3.j7.j2.f4      -292.7867       -77.4142        +INF             .          
+m3.j7.j2.f5      -292.7867       -77.4142        +INF             .          
+m3.j7.j3.f1      -292.7867      -281.5053        +INF             .          
+m3.j7.j3.f2      -292.7867       -81.5053        +INF             .          
+m3.j7.j3.f3      -292.7867       -81.5053        +INF             .          
+m3.j7.j3.f4      -292.7867       -81.5053        +INF             .          
+m3.j7.j3.f5      -292.7867       -81.5053        +INF             .          
+m3.j7.j4.f1      -292.7867      -209.2853        +INF             .          
+m3.j7.j4.f2      -292.7867        -9.2853        +INF             .          
+m3.j7.j4.f3      -292.7867        -9.2853        +INF             .          
+m3.j7.j4.f4      -292.7867        -9.2853        +INF             .          
+m3.j7.j4.f5      -292.7867        -9.2853        +INF             .          
+m3.j7.j5.f1      -292.7867      -287.8943        +INF             .          
+m3.j7.j5.f2      -292.7867       -87.8943        +INF             .          
+m3.j7.j5.f3      -292.7867       -87.8943        +INF             .          
+m3.j7.j5.f4      -292.7867       -87.8943        +INF             .          
+m3.j7.j5.f5      -292.7867       -87.8943        +INF             .          
+m3.j7.j6.f1      -292.7867      -205.0061        +INF             .          
+m3.j7.j6.f2      -292.7867        -5.0061        +INF             .          
+m3.j7.j6.f3      -292.7867        -5.0061        +INF             .          
+m3.j7.j6.f4      -292.7867        -5.0061        +INF             .          
+m3.j7.j6.f5      -292.7867        -5.0061        +INF             .          
+m3.j8.j1.f1      -295.1076      -280.5991        +INF             .          
+m3.j8.j1.f2      -295.1076       -80.5991        +INF             .          
+m3.j8.j1.f3      -295.1076       -80.5991        +INF             .          
+m3.j8.j1.f4      -295.1076       -80.5991        +INF             .          
+m3.j8.j1.f5      -295.1076       -80.5991        +INF             .          
+m3.j8.j2.f1      -295.1076      -284.6275        +INF             .          
+m3.j8.j2.f2      -295.1076       -84.6275        +INF             .          
+m3.j8.j2.f3      -295.1076       -84.6275        +INF             .          
+m3.j8.j2.f4      -295.1076       -84.6275        +INF             .          
+m3.j8.j2.f5      -295.1076       -84.6275        +INF             .          
+m3.j8.j3.f1      -295.1076      -288.7186        +INF             .          
+m3.j8.j3.f2      -295.1076       -88.7186        +INF             .          
+m3.j8.j3.f3      -295.1076       -88.7186        +INF             .          
+m3.j8.j3.f4      -295.1076       -88.7186        +INF             .          
+m3.j8.j3.f5      -295.1076       -88.7186        +INF             .          
+m3.j8.j4.f1      -295.1076      -216.4987        +INF             .          
+m3.j8.j4.f2      -295.1076       -16.4987        +INF             .          
+m3.j8.j4.f3      -295.1076       -16.4987        +INF             .          
+m3.j8.j4.f4      -295.1076       -16.4987        +INF             .          
+m3.j8.j4.f5      -295.1076       -16.4987        +INF             .          
+m3.j8.j5.f1      -295.1076      -295.1076        +INF            EPS         
+m3.j8.j5.f2      -295.1076       -95.1076        +INF             .          
+m3.j8.j5.f3      -295.1076       -95.1076        +INF             .          
+m3.j8.j5.f4      -295.1076       -95.1076        +INF             .          
+m3.j8.j5.f5      -295.1076       -95.1076        +INF             .          
+m3.j8.j6.f1      -295.1076      -212.2195        +INF             .          
+m3.j8.j6.f2      -295.1076       -12.2195        +INF             .          
+m3.j8.j6.f3      -295.1076       -12.2195        +INF             .          
+m3.j8.j6.f4      -295.1076       -12.2195        +INF             .          
+m3.j8.j6.f5      -295.1076       -12.2195        +INF             .          
+m3.j8.j7.f1      -295.1076      -207.2133        +INF             .          
+m3.j8.j7.f2      -295.1076        -7.2133        +INF             .          
+m3.j8.j7.f3      -295.1076        -7.2133        +INF             .          
+m3.j8.j7.f4      -295.1076        -7.2133        +INF             .          
+m3.j8.j7.f5      -295.1076        -7.2133        +INF             .          
+m4.j2.j1.f1      -295.3939      -295.3939        +INF            EPS         
+m4.j2.j1.f2      -295.3939       -95.3939        +INF             .          
+m4.j2.j1.f3      -295.3939       -95.3939        +INF             .          
+m4.j2.j1.f4      -295.3939       -95.3939        +INF             .          
+m4.j2.j1.f5      -295.3939       -95.3939        +INF             .          
+m4.j3.j1.f1      -294.6561      -290.0501        +INF             .          
+m4.j3.j1.f2      -294.6561       -90.0501        +INF             .          
+m4.j3.j1.f3      -294.6561       -90.0501        +INF             .          
+m4.j3.j1.f4      -294.6561       -90.0501        +INF             .          
+m4.j3.j1.f5      -294.6561       -90.0501        +INF             .          
+m4.j3.j2.f1      -294.6561      -294.6561        +INF            EPS         
+m4.j3.j2.f2      -294.6561       -94.6561        +INF             .          
+m4.j3.j2.f3      -294.6561       -94.6561        +INF             .          
+m4.j3.j2.f4      -294.6561       -94.6561        +INF             .          
+m4.j3.j2.f5      -294.6561       -94.6561        +INF             .          
+m4.j4.j1.f1      -296.2990      -265.8630        +INF             .          
+m4.j4.j1.f2      -296.2990       -65.8630        +INF             .          
+m4.j4.j1.f3      -296.2990       -65.8630        +INF             .          
+m4.j4.j1.f4      -296.2990       -65.8630        +INF             .          
+m4.j4.j1.f5      -296.2990       -65.8630        +INF             .          
+m4.j4.j2.f1      -296.2990      -270.4691        +INF             .          
+m4.j4.j2.f2      -296.2990       -70.4691        +INF             .          
+m4.j4.j2.f3      -296.2990       -70.4691        +INF             .          
+m4.j4.j2.f4      -296.2990       -70.4691        +INF             .          
+m4.j4.j2.f5      -296.2990       -70.4691        +INF             .          
+m4.j4.j3.f1      -296.2990      -275.8129        +INF             .          
+m4.j4.j3.f2      -296.2990       -75.8129        +INF             .          
+m4.j4.j3.f3      -296.2990       -75.8129        +INF             .          
+m4.j4.j3.f4      -296.2990       -75.8129        +INF             .          
+m4.j4.j3.f5      -296.2990       -75.8129        +INF             .          
+m4.j5.j1.f1      -294.2900      -284.3400        +INF             .          
+m4.j5.j1.f2      -294.2900       -84.3400        +INF             .          
+m4.j5.j1.f3      -294.2900       -84.3400        +INF             .          
+m4.j5.j1.f4      -294.2900       -84.3400        +INF             .          
+m4.j5.j1.f5      -294.2900       -84.3400        +INF             .          
+m4.j5.j2.f1      -294.2900      -288.9461        +INF             .          
+m4.j5.j2.f2      -294.2900       -88.9461        +INF             .          
+m4.j5.j2.f3      -294.2900       -88.9461        +INF             .          
+m4.j5.j2.f4      -294.2900       -88.9461        +INF             .          
+m4.j5.j2.f5      -294.2900       -88.9461        +INF             .          
+m4.j5.j3.f1      -294.2900      -294.2900        +INF            EPS         
+m4.j5.j3.f2      -294.2900       -94.2900        +INF             .          
+m4.j5.j3.f3      -294.2900       -94.2900        +INF             .          
+m4.j5.j3.f4      -294.2900       -94.2900        +INF             .          
+m4.j5.j3.f5      -294.2900       -94.2900        +INF             .          
+m4.j5.j4.f1      -294.2900      -218.4770        +INF             .          
+m4.j5.j4.f2      -294.2900       -18.4770        +INF             .          
+m4.j5.j4.f3      -294.2900       -18.4770        +INF             .          
+m4.j5.j4.f4      -294.2900       -18.4770        +INF             .          
+m4.j5.j4.f5      -294.2900       -18.4770        +INF             .          
+m4.j6.j1.f1      -295.9946      -269.8378        +INF             .          
+m4.j6.j1.f2      -295.9946       -69.8378        +INF             .          
+m4.j6.j1.f3      -295.9946       -69.8378        +INF             .          
+m4.j6.j1.f4      -295.9946       -69.8378        +INF             .          
+m4.j6.j1.f5      -295.9946       -69.8378        +INF             .          
+m4.j6.j2.f1      -295.9946      -274.4439        +INF             .          
+m4.j6.j2.f2      -295.9946       -74.4439        +INF             .          
+m4.j6.j2.f3      -295.9946       -74.4439        +INF             .          
+m4.j6.j2.f4      -295.9946       -74.4439        +INF             .          
+m4.j6.j2.f5      -295.9946       -74.4439        +INF             .          
+m4.j6.j3.f1      -295.9946      -279.7878        +INF             .          
+m4.j6.j3.f2      -295.9946       -79.7878        +INF             .          
+m4.j6.j3.f3      -295.9946       -79.7878        +INF             .          
+m4.j6.j3.f4      -295.9946       -79.7878        +INF             .          
+m4.j6.j3.f5      -295.9946       -79.7878        +INF             .          
+m4.j6.j4.f1      -295.9946      -203.9748        +INF             .          
+m4.j6.j4.f2      -295.9946        -3.9748        +INF             .          
+m4.j6.j4.f3      -295.9946        -3.9748        +INF             .          
+m4.j6.j4.f4      -295.9946        -3.9748        +INF             .          
+m4.j6.j4.f5      -295.9946        -3.9748        +INF             .          
+m4.j6.j5.f1      -295.9946      -285.4978        +INF             .          
+m4.j6.j5.f2      -295.9946       -85.4978        +INF             .          
+m4.j6.j5.f3      -295.9946       -85.4978        +INF             .          
+m4.j6.j5.f4      -295.9946       -85.4978        +INF             .          
+m4.j6.j5.f5      -295.9946       -85.4978        +INF             .          
+m4.j7.j1.f1      -295.0000      -273.8493        +INF             .          
+m4.j7.j1.f2      -295.0000       -73.8493        +INF             .          
+m4.j7.j1.f3      -295.0000       -73.8493        +INF             .          
+m4.j7.j1.f4      -295.0000       -73.8493        +INF             .          
+m4.j7.j1.f5      -295.0000       -73.8493        +INF             .          
+m4.j7.j2.f1      -295.0000      -278.4554        +INF             .          
+m4.j7.j2.f2      -295.0000       -78.4554        +INF             .          
+m4.j7.j2.f3      -295.0000       -78.4554        +INF             .          
+m4.j7.j2.f4      -295.0000       -78.4554        +INF             .          
+m4.j7.j2.f5      -295.0000       -78.4554        +INF             .          
+m4.j7.j3.f1      -295.0000      -283.7993        +INF             .          
+m4.j7.j3.f2      -295.0000       -83.7993        +INF             .          
+m4.j7.j3.f3      -295.0000       -83.7993        +INF             .          
+m4.j7.j3.f4      -295.0000       -83.7993        +INF             .          
+m4.j7.j3.f5      -295.0000       -83.7993        +INF             .          
+m4.j7.j4.f1      -295.0000      -207.9863        +INF             .          
+m4.j7.j4.f2      -295.0000        -7.9863        +INF             .          
+m4.j7.j4.f3      -295.0000        -7.9863        +INF             .          
+m4.j7.j4.f4      -295.0000        -7.9863        +INF             .          
+m4.j7.j4.f5      -295.0000        -7.9863        +INF             .          
+m4.j7.j5.f1      -295.0000      -289.5093        +INF             .          
+m4.j7.j5.f2      -295.0000       -89.5093        +INF             .          
+m4.j7.j5.f3      -295.0000       -89.5093        +INF             .          
+m4.j7.j5.f4      -295.0000       -89.5093        +INF             .          
+m4.j7.j5.f5      -295.0000       -89.5093        +INF             .          
+m4.j7.j6.f1      -295.0000      -204.0115        +INF             .          
+m4.j7.j6.f2      -295.0000        -4.0115        +INF             .          
+m4.j7.j6.f3      -295.0000        -4.0115        +INF             .          
+m4.j7.j6.f4      -295.0000        -4.0115        +INF             .          
+m4.j7.j6.f5      -295.0000        -4.0115        +INF             .          
+m4.j8.j1.f1      -295.2626      -278.8493        +INF             .          
+m4.j8.j1.f2      -295.2626       -78.8493        +INF             .          
+m4.j8.j1.f3      -295.2626       -78.8493        +INF             .          
+m4.j8.j1.f4      -295.2626       -78.8493        +INF             .          
+m4.j8.j1.f5      -295.2626       -78.8493        +INF             .          
+m4.j8.j2.f1      -295.2626      -283.4554        +INF             .          
+m4.j8.j2.f2      -295.2626       -83.4554        +INF             .          
+m4.j8.j2.f3      -295.2626       -83.4554        +INF             .          
+m4.j8.j2.f4      -295.2626       -83.4554        +INF             .          
+m4.j8.j2.f5      -295.2626       -83.4554        +INF             .          
+m4.j8.j3.f1      -295.2626      -288.7993        +INF             .          
+m4.j8.j3.f2      -295.2626       -88.7993        +INF             .          
+m4.j8.j3.f3      -295.2626       -88.7993        +INF             .          
+m4.j8.j3.f4      -295.2626       -88.7993        +INF             .          
+m4.j8.j3.f5      -295.2626       -88.7993        +INF             .          
+m4.j8.j4.f1      -295.2626      -212.9863        +INF             .          
+m4.j8.j4.f2      -295.2626       -12.9863        +INF             .          
+m4.j8.j4.f3      -295.2626       -12.9863        +INF             .          
+m4.j8.j4.f4      -295.2626       -12.9863        +INF             .          
+m4.j8.j4.f5      -295.2626       -12.9863        +INF             .          
+m4.j8.j5.f1      -295.2626      -294.5093        +INF             .          
+m4.j8.j5.f2      -295.2626       -94.5093        +INF             .          
+m4.j8.j5.f3      -295.2626       -94.5093        +INF             .          
+m4.j8.j5.f4      -295.2626       -94.5093        +INF             .          
+m4.j8.j5.f5      -295.2626       -94.5093        +INF             .          
+m4.j8.j6.f1      -295.2626      -209.0115        +INF             .          
+m4.j8.j6.f2      -295.2626        -9.0115        +INF             .          
+m4.j8.j6.f3      -295.2626        -9.0115        +INF             .          
+m4.j8.j6.f4      -295.2626        -9.0115        +INF             .          
+m4.j8.j6.f5      -295.2626        -9.0115        +INF             .          
+m4.j8.j7.f1      -295.2626      -205.0000        +INF             .          
+m4.j8.j7.f2      -295.2626        -5.0000        +INF             .          
+m4.j8.j7.f3      -295.2626        -5.0000        +INF             .          
+m4.j8.j7.f4      -295.2626        -5.0000        +INF             .          
+m4.j8.j7.f5      -295.2626        -5.0000        +INF             .          
+m5.j2.j1.f1      -294.0654      -294.0654        +INF            EPS         
+m5.j2.j1.f2      -294.0654       -94.0654        +INF             .          
+m5.j2.j1.f3      -294.0654       -94.0654        +INF             .          
+m5.j2.j1.f4      -294.0654       -94.0654        +INF             .          
+m5.j2.j1.f5      -294.0654       -94.0654        +INF             .          
+m5.j3.j1.f1      -295.6623      -289.7277        +INF             .          
+m5.j3.j1.f2      -295.6623       -89.7277        +INF             .          
+m5.j3.j1.f3      -295.6623       -89.7277        +INF             .          
+m5.j3.j1.f4      -295.6623       -89.7277        +INF             .          
+m5.j3.j1.f5      -295.6623       -89.7277        +INF             .          
+m5.j3.j2.f1      -295.6623      -295.6623        +INF            EPS         
+m5.j3.j2.f2      -295.6623       -95.6623        +INF             .          
+m5.j3.j2.f3      -295.6623       -95.6623        +INF             .          
+m5.j3.j2.f4      -295.6623       -95.6623        +INF             .          
+m5.j3.j2.f5      -295.6623       -95.6623        +INF             .          
+m5.j4.j1.f1      -296.3755      -267.1442        +INF             .          
+m5.j4.j1.f2      -296.3755       -67.1442        +INF             .          
+m5.j4.j1.f3      -296.3755       -67.1442        +INF             .          
+m5.j4.j1.f4      -296.3755       -67.1442        +INF             .          
+m5.j4.j1.f5      -296.3755       -67.1442        +INF             .          
+m5.j4.j2.f1      -296.3755      -273.0788        +INF             .          
+m5.j4.j2.f2      -296.3755       -73.0788        +INF             .          
+m5.j4.j2.f3      -296.3755       -73.0788        +INF             .          
+m5.j4.j2.f4      -296.3755       -73.0788        +INF             .          
+m5.j4.j2.f5      -296.3755       -73.0788        +INF             .          
+m5.j4.j3.f1      -296.3755      -277.4165        +INF             .          
+m5.j4.j3.f2      -296.3755       -77.4165        +INF             .          
+m5.j4.j3.f3      -296.3755       -77.4165        +INF             .          
+m5.j4.j3.f4      -296.3755       -77.4165        +INF             .          
+m5.j4.j3.f5      -296.3755       -77.4165        +INF             .          
+m5.j5.j1.f1      -293.9827      -283.7104        +INF             .          
+m5.j5.j1.f2      -293.9827       -83.7104        +INF             .          
+m5.j5.j1.f3      -293.9827       -83.7104        +INF             .          
+m5.j5.j1.f4      -293.9827       -83.7104        +INF             .          
+m5.j5.j1.f5      -293.9827       -83.7104        +INF             .          
+m5.j5.j2.f1      -293.9827      -289.6450        +INF             .          
+m5.j5.j2.f2      -293.9827       -89.6450        +INF             .          
+m5.j5.j2.f3      -293.9827       -89.6450        +INF             .          
+m5.j5.j2.f4      -293.9827       -89.6450        +INF             .          
+m5.j5.j2.f5      -293.9827       -89.6450        +INF             .          
+m5.j5.j3.f1      -293.9827      -293.9827        +INF            EPS         
+m5.j5.j3.f2      -293.9827       -93.9827        +INF             .          
+m5.j5.j3.f3      -293.9827       -93.9827        +INF             .          
+m5.j5.j3.f4      -293.9827       -93.9827        +INF             .          
+m5.j5.j3.f5      -293.9827       -93.9827        +INF             .          
+m5.j5.j4.f1      -293.9827      -216.5662        +INF             .          
+m5.j5.j4.f2      -293.9827       -16.5662        +INF             .          
+m5.j5.j4.f3      -293.9827       -16.5662        +INF             .          
+m5.j5.j4.f4      -293.9827       -16.5662        +INF             .          
+m5.j5.j4.f5      -293.9827       -16.5662        +INF             .          
+m5.j6.j1.f1      -295.9069      -270.7688        +INF             .          
+m5.j6.j1.f2      -295.9069       -70.7688        +INF             .          
+m5.j6.j1.f3      -295.9069       -70.7688        +INF             .          
+m5.j6.j1.f4      -295.9069       -70.7688        +INF             .          
+m5.j6.j1.f5      -295.9069       -70.7688        +INF             .          
+m5.j6.j2.f1      -295.9069      -276.7033        +INF             .          
+m5.j6.j2.f2      -295.9069       -76.7033        +INF             .          
+m5.j6.j2.f3      -295.9069       -76.7033        +INF             .          
+m5.j6.j2.f4      -295.9069       -76.7033        +INF             .          
+m5.j6.j2.f5      -295.9069       -76.7033        +INF             .          
+m5.j6.j3.f1      -295.9069      -281.0410        +INF             .          
+m5.j6.j3.f2      -295.9069       -81.0410        +INF             .          
+m5.j6.j3.f3      -295.9069       -81.0410        +INF             .          
+m5.j6.j3.f4      -295.9069       -81.0410        +INF             .          
+m5.j6.j3.f5      -295.9069       -81.0410        +INF             .          
+m5.j6.j4.f1      -295.9069      -203.6245        +INF             .          
+m5.j6.j4.f2      -295.9069        -3.6245        +INF             .          
+m5.j6.j4.f3      -295.9069        -3.6245        +INF             .          
+m5.j6.j4.f4      -295.9069        -3.6245        +INF             .          
+m5.j6.j4.f5      -295.9069        -3.6245        +INF             .          
+m5.j6.j5.f1      -295.9069      -287.0583        +INF             .          
+m5.j6.j5.f2      -295.9069       -87.0583        +INF             .          
+m5.j6.j5.f3      -295.9069       -87.0583        +INF             .          
+m5.j6.j5.f4      -295.9069       -87.0583        +INF             .          
+m5.j6.j5.f5      -295.9069       -87.0583        +INF             .          
+m5.j7.j1.f1      -295.6248      -274.8618        +INF             .          
+m5.j7.j1.f2      -295.6248       -74.8618        +INF             .          
+m5.j7.j1.f3      -295.6248       -74.8618        +INF             .          
+m5.j7.j1.f4      -295.6248       -74.8618        +INF             .          
+m5.j7.j1.f5      -295.6248       -74.8618        +INF             .          
+m5.j7.j2.f1      -295.6248      -280.7964        +INF             .          
+m5.j7.j2.f2      -295.6248       -80.7964        +INF             .          
+m5.j7.j2.f3      -295.6248       -80.7964        +INF             .          
+m5.j7.j2.f4      -295.6248       -80.7964        +INF             .          
+m5.j7.j2.f5      -295.6248       -80.7964        +INF             .          
+m5.j7.j3.f1      -295.6248      -285.1341        +INF             .          
+m5.j7.j3.f2      -295.6248       -85.1341        +INF             .          
+m5.j7.j3.f3      -295.6248       -85.1341        +INF             .          
+m5.j7.j3.f4      -295.6248       -85.1341        +INF             .          
+m5.j7.j3.f5      -295.6248       -85.1341        +INF             .          
+m5.j7.j4.f1      -295.6248      -207.7176        +INF             .          
+m5.j7.j4.f2      -295.6248        -7.7176        +INF             .          
+m5.j7.j4.f3      -295.6248        -7.7176        +INF             .          
+m5.j7.j4.f4      -295.6248        -7.7176        +INF             .          
+m5.j7.j4.f5      -295.6248        -7.7176        +INF             .          
+m5.j7.j5.f1      -295.6248      -291.1514        +INF             .          
+m5.j7.j5.f2      -295.6248       -91.1514        +INF             .          
+m5.j7.j5.f3      -295.6248       -91.1514        +INF             .          
+m5.j7.j5.f4      -295.6248       -91.1514        +INF             .          
+m5.j7.j5.f5      -295.6248       -91.1514        +INF             .          
+m5.j7.j6.f1      -295.6248      -204.0931        +INF             .          
+m5.j7.j6.f2      -295.6248        -4.0931        +INF             .          
+m5.j7.j6.f3      -295.6248        -4.0931        +INF             .          
+m5.j7.j6.f4      -295.6248        -4.0931        +INF             .          
+m5.j7.j6.f5      -295.6248        -4.0931        +INF             .          
+m5.j8.j1.f1      -295.5266      -279.2370        +INF             .          
+m5.j8.j1.f2      -295.5266       -79.2370        +INF             .          
+m5.j8.j1.f3      -295.5266       -79.2370        +INF             .          
+m5.j8.j1.f4      -295.5266       -79.2370        +INF             .          
+m5.j8.j1.f5      -295.5266       -79.2370        +INF             .          
+m5.j8.j2.f1      -295.5266      -285.1716        +INF             .          
+m5.j8.j2.f2      -295.5266       -85.1716        +INF             .          
+m5.j8.j2.f3      -295.5266       -85.1716        +INF             .          
+m5.j8.j2.f4      -295.5266       -85.1716        +INF             .          
+m5.j8.j2.f5      -295.5266       -85.1716        +INF             .          
+m5.j8.j3.f1      -295.5266      -289.5093        +INF             .          
+m5.j8.j3.f2      -295.5266       -89.5093        +INF             .          
+m5.j8.j3.f3      -295.5266       -89.5093        +INF             .          
+m5.j8.j3.f4      -295.5266       -89.5093        +INF             .          
+m5.j8.j3.f5      -295.5266       -89.5093        +INF             .          
+m5.j8.j4.f1      -295.5266      -212.0928        +INF             .          
+m5.j8.j4.f2      -295.5266       -12.0928        +INF             .          
+m5.j8.j4.f3      -295.5266       -12.0928        +INF             .          
+m5.j8.j4.f4      -295.5266       -12.0928        +INF             .          
+m5.j8.j4.f5      -295.5266       -12.0928        +INF             .          
+m5.j8.j5.f1      -295.5266      -295.5266        +INF            EPS         
+m5.j8.j5.f2      -295.5266       -95.5266        +INF             .          
+m5.j8.j5.f3      -295.5266       -95.5266        +INF             .          
+m5.j8.j5.f4      -295.5266       -95.5266        +INF             .          
+m5.j8.j5.f5      -295.5266       -95.5266        +INF             .          
+m5.j8.j6.f1      -295.5266      -208.4683        +INF             .          
+m5.j8.j6.f2      -295.5266        -8.4683        +INF             .          
+m5.j8.j6.f3      -295.5266        -8.4683        +INF             .          
+m5.j8.j6.f4      -295.5266        -8.4683        +INF             .          
+m5.j8.j6.f5      -295.5266        -8.4683        +INF             .          
+m5.j8.j7.f1      -295.5266      -204.3752        +INF             .          
+m5.j8.j7.f2      -295.5266        -4.3752        +INF             .          
+m5.j8.j7.f3      -295.5266        -4.3752        +INF             .          
+m5.j8.j7.f4      -295.5266        -4.3752        +INF             .          
+m5.j8.j7.f5      -295.5266        -4.3752        +INF             .          
+
+---- EQU cho_factory  guarantees that the jobs within the same customer order must be assigned to the same factory
+
+             LOWER          LEVEL          UPPER         MARGINAL
+
+f1.j1          .              .              .              .          
+f1.j2          .              .              .              .          
+f1.j3          .              .              .              .          
+f1.j4          .              .              .              .          
+f1.j5          .              .              .              .          
+f1.j6          .              .              .              .          
+f1.j7          .              .              .              .          
+f2.j1          .              .              .              .          
+f2.j2          .              .              .              .          
+f2.j3          .              .              .              .          
+f2.j4          .              .              .              .          
+f2.j5          .              .              .              .          
+f2.j6          .              .              .              .          
+f2.j7          .              .              .              .          
+f3.j1          .              .              .              .          
+f3.j2          .              .              .              .          
+f3.j3          .              .              .              .          
+f3.j4          .              .              .              .          
+f3.j5          .              .              .              .          
+f3.j6          .              .              .              .          
+f3.j7          .              .              .              .          
+f4.j1          .              .              .              .          
+f4.j2          .              .              .              .          
+f4.j3          .              .              .              .          
+f4.j4          .              .              .              .          
+f4.j5          .              .              .              .          
+f4.j6          .              .              .              .          
+f4.j7          .              .              .              .          
+f5.j1          .              .              .              .          
+f5.j2          .              .              .              .          
+f5.j3          .              .              .              .          
+f5.j4          .              .              .              .          
+f5.j5          .              .              .              .          
+f5.j6          .              .              .              .          
+f5.j7          .              .              .              .          
+
+---- EQU makespan  defines the overall makespan among factories
+
+             LOWER          LEVEL          UPPER         MARGINAL
+
+m5.j1          .            32.8558        +INF             .          
+m5.j2          .            26.9212        +INF             .          
+m5.j3          .            22.5835        +INF             .          
+m5.j4          .              .            +INF            1.0000      
+m5.j5          .            16.5662        +INF             .          
+m5.j6          .             3.6245        +INF             .          
+m5.j7          .             7.7176        +INF             .          
+m5.j8          .            12.0928        +INF             .          
+
+---- EQU non_neg  enforces that the completion time of jobs on machines must be non-negative.
+
+             LOWER          LEVEL          UPPER         MARGINAL
+
+m1.j1          .             1.0000        +INF             .          
+m1.j2          .             5.2684        +INF             .          
+m1.j3          .             9.5091        +INF             .          
+m1.j4          .            34.0631        +INF             .          
+m1.j5          .            14.8288        +INF             .          
+m1.j6          .            29.5493        +INF             .          
+m1.j7          .            25.2733        +INF             .          
+m1.j8          .            19.6106        +INF             .          
+m2.j1          .             7.1158        +INF             .          
+m2.j2          .            10.0481        +INF             .          
+m2.j3          .            15.0484        +INF             .          
+m2.j4          .            42.7285        +INF             .          
+m2.j5          .            21.2354        +INF             .          
+m2.j6          .            35.8449        +INF             .          
+m2.j7          .            31.8443        +INF             .          
+m2.j8          .            25.2733        +INF             .          
+m3.j1          .            12.4434        +INF             .          
+m3.j2          .            16.4718        +INF             .          
+m3.j3          .            20.5629        +INF             .          
+m3.j4          .            48.3430        +INF             .          
+m3.j5          .            26.9519        +INF             .          
+m3.j6          .            44.0638        +INF             .          
+m3.j7          .            39.0577        +INF             .          
+m3.j8          .            31.8443        +INF             .          
+m4.j1          .            17.9070        +INF             .          
+m4.j2          .            22.5131        +INF             .          
+m4.j3          .            27.8569        +INF             .          
+m4.j4          .            52.0440        +INF             .          
+m4.j5          .            33.5670        +INF             .          
+m4.j6          .            48.0692        +INF             .          
+m4.j7          .            44.0577        +INF             .          
+m4.j8          .            39.0577        +INF             .          
+m5.j1          .            23.2947        +INF             .          
+m5.j2          .            29.2293        +INF             .          
+m5.j3          .            33.5670        +INF             .          
+m5.j4          .            56.1505        +INF             .          
+m5.j5          .            39.5843        +INF             .          
+m5.j6          .            52.5259        +INF             .          
+m5.j7          .            48.4329        +INF             .          
+m5.j8          .            44.0577        +INF             .          
+
+---- VAR C  Continuous variable denotes completion time of job j on machine i
+
+             LOWER          LEVEL          UPPER         MARGINAL
+
+m1.j1        -INF            1.0000        +INF             .          
+m1.j2        -INF            5.2684        +INF             .          
+m1.j3        -INF            9.5091        +INF             .          
+m1.j4        -INF           34.0631        +INF             .          
+m1.j5        -INF           14.8288        +INF             .          
+m1.j6        -INF           29.5493        +INF             .          
+m1.j7        -INF           25.2733        +INF             .          
+m1.j8        -INF           19.6106        +INF             .          
+m2.j1        -INF            7.1158        +INF             .          
+m2.j2        -INF           10.0481        +INF             .          
+m2.j3        -INF           15.0484        +INF             .          
+m2.j4        -INF           42.7285        +INF             .          
+m2.j5        -INF           21.2354        +INF             .          
+m2.j6        -INF           35.8449        +INF             .          
+m2.j7        -INF           31.8443        +INF             .          
+m2.j8        -INF           25.2733        +INF             .          
+m3.j1        -INF           12.4434        +INF             .          
+m3.j2        -INF           16.4718        +INF             .          
+m3.j3        -INF           20.5629        +INF             .          
+m3.j4        -INF           48.3430        +INF             .          
+m3.j5        -INF           26.9519        +INF             .          
+m3.j6        -INF           44.0638        +INF             .          
+m3.j7        -INF           39.0577        +INF             .          
+m3.j8        -INF           31.8443        +INF             .          
+m4.j1        -INF           17.9070        +INF             .          
+m4.j2        -INF           22.5131        +INF             .          
+m4.j3        -INF           27.8569        +INF             .          
+m4.j4        -INF           52.0440        +INF             .          
+m4.j5        -INF           33.5670        +INF             .          
+m4.j6        -INF           48.0692        +INF             .          
+m4.j7        -INF           44.0577        +INF             .          
+m4.j8        -INF           39.0577        +INF             .          
+m5.j1        -INF           23.2947        +INF             .          
+m5.j2        -INF           29.2293        +INF             .          
+m5.j3        -INF           33.5670        +INF             .          
+m5.j4        -INF           56.1505        +INF             .          
+m5.j5        -INF           39.5843        +INF             .          
+m5.j6        -INF           52.5259        +INF             .          
+m5.j7        -INF           48.4329        +INF             .          
+m5.j8        -INF           44.0577        +INF             .          
+
+---- VAR X  Binary variable equal to 1 if job j is the immediate successor of job k, and 0 otherwise.
+
+             LOWER          LEVEL          UPPER         MARGINAL
+
+j1.j2          .             1.0000         1.0000       100.0000      
+j1.j3          .             1.0000         1.0000         EPS         
+j1.j4          .             1.0000         1.0000         EPS         
+j1.j5          .             1.0000         1.0000         EPS         
+j1.j6          .             1.0000         1.0000         EPS         
+j1.j7          .             1.0000         1.0000         EPS         
+j1.j8          .             1.0000         1.0000         EPS         
+j2.j3          .             1.0000         1.0000       100.0000      
+j2.j4          .             1.0000         1.0000         EPS         
+j2.j5          .             1.0000         1.0000         EPS         
+j2.j6          .             1.0000         1.0000         EPS         
+j2.j7          .             1.0000         1.0000         EPS         
+j2.j8          .             1.0000         1.0000         EPS         
+j3.j4          .             1.0000         1.0000         EPS         
+j3.j5          .             1.0000         1.0000       100.0000      
+j3.j6          .             1.0000         1.0000         EPS         
+j3.j7          .             1.0000         1.0000         EPS         
+j3.j8          .             1.0000         1.0000         EPS         
+j4.j5          .              .             1.0000         EPS         
+j4.j6          .              .             1.0000      -100.0000      
+j4.j7          .              .             1.0000         EPS         
+j4.j8          .              .             1.0000         EPS         
+j5.j6          .             1.0000         1.0000         EPS         
+j5.j7          .             1.0000         1.0000         EPS         
+j5.j8          .             1.0000         1.0000       100.0000      
+j6.j7          .              .             1.0000      -100.0000      
+j6.j8          .              .             1.0000         EPS         
+j7.j8          .              .             1.0000      -100.0000      
+
+---- VAR Y  Binary variable equal to 1 if job j is assigned to factory g, and 0 otherwise
+
+             LOWER          LEVEL          UPPER         MARGINAL
+
+j1.f1          .             1.0000         1.0000       100.0000      
+j1.f2          .              .             1.0000         EPS         
+j1.f3          .              .             1.0000         EPS         
+j1.f4          .              .             1.0000         EPS         
+j1.f5          .              .             1.0000         EPS         
+j2.f1          .             1.0000         1.0000       200.0000      
+j2.f2          .              .             1.0000         EPS         
+j2.f3          .              .             1.0000         EPS         
+j2.f4          .              .             1.0000         EPS         
+j2.f5          .              .             1.0000         EPS         
+j3.f1          .             1.0000         1.0000       200.0000      
+j3.f2          .              .             1.0000         EPS         
+j3.f3          .              .             1.0000         EPS         
+j3.f4          .              .             1.0000         EPS         
+j3.f5          .              .             1.0000         EPS         
+j4.f1          .             1.0000         1.0000       100.0000      
+j4.f2          .              .             1.0000         EPS         
+j4.f3          .              .             1.0000         EPS         
+j4.f4          .              .             1.0000         EPS         
+j4.f5          .              .             1.0000         EPS         
+j5.f1          .             1.0000         1.0000       200.0000      
+j5.f2          .              .             1.0000         EPS         
+j5.f3          .              .             1.0000         EPS         
+j5.f4          .              .             1.0000         EPS         
+j5.f5          .              .             1.0000         EPS         
+j6.f1          .             1.0000         1.0000       200.0000      
+j6.f2          .              .             1.0000         EPS         
+j6.f3          .              .             1.0000         EPS         
+j6.f4          .              .             1.0000         EPS         
+j6.f5          .              .             1.0000         EPS         
+j7.f1          .             1.0000         1.0000       200.0000      
+j7.f2          .              .             1.0000         EPS         
+j7.f3          .              .             1.0000         EPS         
+j7.f4          .              .             1.0000         EPS         
+j7.f5          .              .             1.0000         EPS         
+j8.f1          .             1.0000         1.0000       200.0000      
+j8.f2          .              .             1.0000         EPS         
+j8.f3          .              .             1.0000         EPS         
+j8.f4          .              .             1.0000         EPS         
+j8.f5          .              .             1.0000         EPS         
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- VAR Cmax              -INF           56.1505        +INF             .          
+
+
+**** REPORT SUMMARY :        0     NONOPT
+                             0 INFEASIBLE
+                             0  UNBOUNDED
+GAMS 33.2.0  r4f23b21 Released Dec  1, 2020 DEX-DEG x86 64bit/Mac OS X - 01/13/21 15:21:40 Page 7
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+E x e c u t i o n
+
+
+----    122 The objective function is
+
+----    123 VARIABLE C.L  Continuous variable denotes completion time of job j on machine i
+
+            j1          j2          j3          j4          j5          j6          j7          j8
+
+m1       1.000       5.268       9.509      34.063      14.829      29.549      25.273      19.611
+m2       7.116      10.048      15.048      42.728      21.235      35.845      31.844      25.273
+m3      12.443      16.472      20.563      48.343      26.952      44.064      39.058      31.844
+m4      17.907      22.513      27.857      52.044      33.567      48.069      44.058      39.058
+m5      23.295      29.229      33.567      56.150      39.584      52.526      48.433      44.058
+
+
+----    123 VARIABLE Y.L  Binary variable equal to 1 if job j is assigned to factory g, and 0 otherwise
+
+            f1
+
+j1       1.000
+j2       1.000
+j3       1.000
+j4       1.000
+j5       1.000
+j6       1.000
+j7       1.000
+j8       1.000
+
+
+----    123 VARIABLE Cmax.L                =       56.150  
+
+
+EXECUTION TIME       =        2.701 SECONDS      5 MB  33.2.0 r4f23b21 DEX-DEG
+
+
+USER: GAMS Demo license for Eren Holiday             G210104|0002CO-GEN
+      Bilkent, Turkey                                          DL028674
+
+
+**** FILE SUMMARY
+
+Input      /Users/erencemsalta/Desktop/HW_2/Model_1/model_1.gms
+Output     /Users/erencemsalta/Desktop/HW_2/Model_1/model_1.lst
